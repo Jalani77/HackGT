@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --color-ink: #07070d;
+  --color-panel: #12121c;
+  --color-panel-2: #1b1b2a;
+  --color-accent: #7cf5c8;
+  --color-accent-2: #ffd166;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--color-ink);
+  color: #f4f4f8;
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Holographic sheen used on higher-rarity cards. */
+@keyframes sheen {
+  0% { transform: translateX(-120%) rotate(12deg); }
+  100% { transform: translateX(220%) rotate(12deg); }
+}
+.card-sheen::after {
+  content: '';
+  position: absolute;
+  inset: -20% auto -20% 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: sheen 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Rotating conic border for epic+ cards. */
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.foil-ring {
+  animation: spin-slow 4s linear infinite;
+}
+
+/* Viewfinder scan line. */
+@keyframes scan {
+  0% { top: 8%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: 92%; opacity: 0; }
+}
+.scan-line {
+  animation: scan 1.6s ease-in-out infinite;
+}
+
+.pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+.pt-safe { padding-top: max(env(safe-area-inset-top), 0.75rem); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card-sheen::after, .foil-ring, .scan-line { animation: none; }
+}
