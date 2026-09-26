@@ -178,7 +178,10 @@ export function CardReveal({ result, onDone, onViewCard }: Props) {
                 ✓ ADDED TO COLLECTION
               </motion.div>
 
-              <p className="text-sm leading-relaxed text-white/70">{card.description}</p>
+              <div className="w-full rounded-2xl bg-accent/10 p-4 text-left ring-1 ring-accent/30">
+                <div className="font-display text-xs font-bold tracking-widest text-accent">FUN FACT</div>
+                <p className="mt-1.5 leading-relaxed">{card.funFact}</p>
+              </div>
 
               <div className="mt-1 flex w-full gap-3 pb-4">
                 <button

@@ -84,6 +84,33 @@ export interface CollectionResponse {
   totals: { uniqueOwned: number; copies: number; catalogSize: number; completion: number };
 }
 
+/** Fields a player may change on their own copy. Everything else is server-controlled. */
+export interface CopyPatch {
+  tradable?: boolean;
+  favorite?: boolean;
+}
+
+export interface RecentDiscovery {
+  id: string;
+  cardId: string;
+  name: string;
+  category: CardCategory;
+  photoUrl: string;
+  xpAwarded: number;
+  isDuplicate: boolean;
+  createdAt: string;
+}
+
+export interface ProfileResponse {
+  user: PublicUser;
+  isMe: boolean;
+  rarestCard: CollectionEntry | null;
+  favorites: CollectionEntry[];
+  tradableCount: number;
+  categories: { category: CardCategory; count: number }[];
+  recentDiscoveries: RecentDiscovery[];
+}
+
 export interface DiscoveryResult {
   discoveryId: string;
   card: CardDTO;
@@ -110,6 +137,7 @@ export type ApiErrorCode =
   | 'PERSON_DETECTED'
   | 'AI_FAILURE'
   | 'RATE_LIMITED'
+  | 'UNAVAILABLE'
   | 'INTERNAL';
 
 export interface ApiError {

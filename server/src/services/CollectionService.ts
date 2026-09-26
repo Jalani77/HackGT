@@ -1,7 +1,15 @@
 import { Types } from 'mongoose';
-import type { AcquiredVia, CollectionResponse, OwnedCardDTO, Season, TimeOfDay } from '../../../shared/types';
+import type {
+  AcquiredVia,
+  CollectionResponse,
+  CopyPatch,
+  OwnedCardDTO,
+  Season,
+  TimeOfDay,
+} from '../../../shared/types';
 import { Card } from '../models/Card';
 import { OwnedCard, type OwnedCardDoc } from '../models/OwnedCard';
+import { AppError } from '../utils/AppError';
 import { CardService } from './CardService';
 
 export const CollectionService = {
@@ -49,6 +57,21 @@ export const CollectionService = {
         completion: catalogSize ? Math.round((cards.length / catalogSize) * 1000) / 10 : 0,
       },
     };
+  },
+
+  /**
+   * Update player-controlled flags on a copy. The ownerId filter is the ownership check:
+   * a copy that isn't yours simply isn't found.
+   */
+  async updateCopy(ownerId: Types.ObjectId, copyId: string, patch: CopyPatch): Promise<OwnedCardDTO> {
+    if (!Types.ObjectId.isValid(copyId)) throw new AppError('NOT_FOUND', 'Card copy not found.');
+    const copy = await OwnedCard.findOneAndUpdate(
+      { _id: copyId, ownerId },
+      { $set: patch },
+      { returnDocument: 'after' },
+    );
+    if (!copy) throw new AppError('NOT_FOUND', 'Card copy not found.');
+    return toCopyDTO(copy);
   },
 
   async counts(userId: Types.ObjectId | string): Promise<{ cardsOwned: number; uniqueCards: number }> {

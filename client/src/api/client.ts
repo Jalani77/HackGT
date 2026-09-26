@@ -4,7 +4,10 @@ import type {
   AuthResponse,
   CardDTO,
   CollectionResponse,
+  CopyPatch,
   DiscoveryResult,
+  OwnedCardDTO,
+  ProfileResponse,
   PublicUser,
 } from '@shared/types';
 
@@ -81,4 +84,7 @@ export const api = {
 
   collection: (userId = 'me') => request<CollectionResponse>(`/users/${userId}/collection`),
   card: (id: string) => request<CardDTO>(`/cards/${id}`),
+  profile: (userId = 'me') => request<ProfileResponse>(`/users/${userId}/profile`),
+  updateCopy: (copyId: string, patch: CopyPatch) =>
+    request<OwnedCardDTO>(`/collection/${copyId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
 };

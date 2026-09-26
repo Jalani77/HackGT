@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import type { CardDTO, CollectionEntry } from '@shared/types';
+import type { CardDTO, CollectionEntry, CopyPatch } from '@shared/types';
 import { api } from '../api/client';
 import { CollectibleCard } from '../components/cards/CollectibleCard';
 
@@ -10,6 +10,24 @@ export function CardDetailScreen() {
   const [card, setCard] = useState<CardDTO | null>(null);
   const [mine, setMine] = useState<CollectionEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+
+  /** Optimistically flip a flag on one of my copies; roll back if the server rejects it. */
+  async function toggle(copyId: string, patch: CopyPatch) {
+    const apply = (p: CopyPatch) =>
+      setMine((m) => m && { ...m, copies: m.copies.map((c) => (c.id === copyId ? { ...c, ...p } : c)) });
+    const before = mine?.copies.find((c) => c.id === copyId);
+    if (!before) return;
+    setToggleError(null);
+    apply(patch);
+    try {
+      const saved = await api.updateCopy(copyId, patch);
+      apply({ favorite: saved.favorite, tradable: saved.tradable });
+    } catch (e) {
+      apply({ favorite: before.favorite, tradable: before.tradable });
+      setToggleError((e as Error).message);
+    }
+  }
 
   useEffect(() => {
     Promise.all([api.card(id), api.collection()])
@@ -70,22 +88,69 @@ export function CardDetailScreen() {
                 {mine.copies.map((c) => (
                   <li key={c.id} className="flex items-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-white/10">
                     <img src={c.imageUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
-                    <div className="flex-1 text-sm">
+                    <div className="min-w-0 flex-1 text-sm">
                       <div>{new Date(c.acquiredAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}</div>
-                      <div className="text-xs text-white/50">
-                        via {c.acquiredVia}
-                        {c.environment && ` · ${c.environment.season} ${c.environment.timeOfDay.toLowerCase()}`}
+                      <div className="truncate text-xs text-white/50">
+                        via {c.acquiredVia} · +{c.xpAwarded} XP
+                        {c.environment && ` · ${c.environment.season}`}
                       </div>
                     </div>
-                    <span className="font-display text-sm text-accent">+{c.xpAwarded} XP</span>
+                    <Toggle
+                      on={c.favorite}
+                      onClick={() => toggle(c.id, { favorite: !c.favorite })}
+                      label="Favorite"
+                      icon="★"
+                      color="var(--color-accent-2)"
+                    />
+                    <Toggle
+                      on={c.tradable}
+                      onClick={() => toggle(c.id, { tradable: !c.tradable })}
+                      label="Tradable"
+                      icon="🔄"
+                      color="var(--color-accent)"
+                    />
                   </li>
                 ))}
               </ul>
+              {toggleError && <p className="mt-2 text-sm text-red-300">{toggleError}</p>}
+              <p className="mt-2 text-xs text-white/45">
+                ★ favorites show on your profile. 🔄 tradable copies are the ones you're willing to trade away.
+                {mine.copies.length > 1 && ' Duplicates make great trade offers!'}
+              </p>
             </section>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function Toggle({
+  on,
+  onClick,
+  label,
+  icon,
+  color,
+}: {
+  on: boolean;
+  onClick: () => void;
+  label: string;
+  icon: string;
+  color: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg transition active:scale-90 ${
+        on ? '' : 'bg-white/5 opacity-40 grayscale'
+      }`}
+      style={on ? { background: `color-mix(in srgb, ${color} 22%, transparent)`, boxShadow: `inset 0 0 0 1px ${color}`, color } : undefined}
+    >
+      {icon}
+    </button>
   );
 }
 

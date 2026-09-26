@@ -13,6 +13,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   RATE_LIMITED: 429,
   AI_FAILURE: 502,
   INTERNAL: 500,
+  UNAVAILABLE: 503,
 };
 
 /** Expected, user-facing errors. Anything else is treated as a 500. */

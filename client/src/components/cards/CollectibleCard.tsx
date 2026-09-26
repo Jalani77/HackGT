@@ -8,6 +8,8 @@ interface Props {
   /** Art for this particular copy (the owner's photo); defaults to the catalog art. */
   imageUrl?: string;
   copies?: number;
+  favorite?: boolean;
+  tradable?: boolean;
   compact?: boolean;
 }
 
@@ -15,7 +17,7 @@ interface Props {
  * The collectible card face. All visual variation is driven by rarity, never by the
  * specific card, so any AI-discovered object renders correctly.
  */
-export function CollectibleCard({ card, imageUrl, copies, compact = false }: Props) {
+export function CollectibleCard({ card, imageUrl, copies, favorite, tradable, compact = false }: Props) {
   const d = RARITY_DISPLAY[card.rarity];
   const rank = rarityRank(card.rarity);
   const foil = rank >= 3; // epic+
@@ -61,6 +63,14 @@ export function CollectibleCard({ card, imageUrl, copies, compact = false }: Pro
             style={{ boxShadow: `0 0 0 1px ${d.color}66` }}
           >
             <img src={imageUrl ?? card.imageUrl} alt={card.name} className="h-full w-full object-cover" draggable={false} />
+            {(favorite || tradable) && (
+              <span className="absolute left-1.5 top-1.5 flex gap-1">
+                {favorite && (
+                  <span className="rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] text-accent-2">★</span>
+                )}
+                {tradable && <span className="rounded-full bg-black/70 px-1.5 py-0.5 text-[10px]">🔄</span>}
+              </span>
+            )}
             {copies && copies > 1 && (
               <span className="absolute right-1.5 top-1.5 rounded-full bg-black/70 px-2 py-0.5 font-display text-[10px] font-bold">
                 ×{copies}
@@ -77,7 +87,7 @@ export function CollectibleCard({ card, imageUrl, copies, compact = false }: Pro
 
         {!compact && (
           <>
-            <p className="mx-4 mt-2.5 line-clamp-3 text-[13px] italic leading-snug text-white/80">“{card.funFact}”</p>
+            <p className="mx-4 mt-2.5 line-clamp-2 text-[13px] italic leading-snug text-white/80">“{card.funFact}”</p>
             <div className="mt-auto flex items-center justify-between border-t border-white/10 px-4 py-2.5 text-[11px] text-white/60">
               <span>
                 Value <b className="font-display text-white">{card.tradeValue}</b>

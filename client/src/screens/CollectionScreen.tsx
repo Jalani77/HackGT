@@ -5,18 +5,17 @@ import { RARITY_DISPLAY, RARITY_TIERS, rarityRank, type Rarity } from '@shared/r
 import type { CollectionResponse } from '@shared/types';
 import { api } from '../api/client';
 import { CollectibleCard } from '../components/cards/CollectibleCard';
-import { usePlayer } from '../context/PlayerContext';
 
 type Sort = 'recent' | 'rarity' | 'category';
 
 export function CollectionScreen() {
-  const { player, logout } = usePlayer();
   const [data, setData] = useState<CollectionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rarity, setRarity] = useState<Rarity | 'ALL'>('ALL');
   const [sort, setSort] = useState<Sort>('recent');
   const [q, setQ] = useState('');
-  const [dupesOnly, setDupesOnly] = useState(false);
+  const [flag, setFlag] = useState<'duplicates' | 'favorites' | 'tradable' | null>(null);
+  const toggleFlag = (f: NonNullable<typeof flag>) => setFlag((cur) => (cur === f ? null : f));
 
   useEffect(() => {
     api.collection().then(setData, (e) => setError(e.message));
@@ -28,30 +27,27 @@ export function CollectionScreen() {
     const list = data.entries.filter(
       (e) =>
         (rarity === 'ALL' || e.card.rarity === rarity) &&
-        (!dupesOnly || e.copies.length > 1) &&
+        (flag !== 'duplicates' || e.copies.length > 1) &&
+        (flag !== 'favorites' || e.copies.some((c) => c.favorite)) &&
+        (flag !== 'tradable' || e.copies.some((c) => c.tradable)) &&
         (!needle || e.card.name.toLowerCase().includes(needle) || e.card.category.toLowerCase().includes(needle)),
     );
     if (sort === 'rarity') return [...list].sort((a, b) => rarityRank(b.card.rarity) - rarityRank(a.card.rarity));
     if (sort === 'category') return [...list].sort((a, b) => a.card.category.localeCompare(b.card.category));
     return list;
-  }, [data, rarity, sort, q, dupesOnly]);
+  }, [data, rarity, sort, q, flag]);
 
   return (
     <div className="h-full overflow-y-auto">
       <header className="pt-safe sticky top-0 z-10 bg-ink/85 px-4 pb-3 backdrop-blur-xl">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold">Collection</h1>
-            {data && (
-              <p className="text-sm text-white/60">
-                {data.totals.uniqueOwned} unique · {data.totals.copies} {data.totals.copies === 1 ? 'card' : 'cards'} ·{' '}
-                {data.totals.completion}% of campus
-              </p>
-            )}
-          </div>
-          <button onClick={logout} className="text-xs text-white/40 underline">
-            Log out {player?.username}
-          </button>
+        <div>
+          <h1 className="font-display text-3xl font-bold">Collection</h1>
+          {data && (
+            <p className="text-sm text-white/60">
+              {data.totals.uniqueOwned} unique · {data.totals.copies} {data.totals.copies === 1 ? 'card' : 'cards'} ·{' '}
+              {data.totals.completion}% of campus
+            </p>
+          )}
         </div>
 
         {data && (
@@ -92,7 +88,13 @@ export function CollectionScreen() {
               {RARITY_DISPLAY[r].label}
             </Chip>
           ))}
-          <Chip active={dupesOnly} onClick={() => setDupesOnly((d) => !d)}>
+          <Chip active={flag === 'favorites'} onClick={() => toggleFlag('favorites')}>
+            ★ Favorites
+          </Chip>
+          <Chip active={flag === 'tradable'} onClick={() => toggleFlag('tradable')}>
+            🔄 Tradable
+          </Chip>
+          <Chip active={flag === 'duplicates'} onClick={() => toggleFlag('duplicates')}>
             Duplicates
           </Chip>
         </div>
@@ -125,7 +127,14 @@ export function CollectionScreen() {
             transition={{ delay: Math.min(i, 12) * 0.03 }}
           >
             <Link to={`/card/${e.card.id}`} className="block active:scale-95">
-              <CollectibleCard card={e.card} imageUrl={e.copies[0]?.imageUrl} copies={e.copies.length} compact />
+              <CollectibleCard
+                card={e.card}
+                imageUrl={e.copies[0]?.imageUrl}
+                copies={e.copies.length}
+                favorite={e.copies.some((c) => c.favorite)}
+                tradable={e.copies.some((c) => c.tradable)}
+                compact
+              />
             </Link>
           </motion.div>
         ))}

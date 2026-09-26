@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 const TABS = [
   { to: '/', label: 'Explore', icon: '📷' },
   { to: '/collection', label: 'Collection', icon: '🃏' },
+  { to: '/profile', label: 'Profile', icon: '🧑‍🚀' },
 ];
 
 export function BottomNav() {

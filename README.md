@@ -32,13 +32,23 @@ npm run dev                   # API on :4000, app on http://localhost:5173
 |---|---|
 | `npm run dev` | server + client with hot reload |
 | `npm run typecheck` | TypeScript checks for both packages |
-| `npm run smoke` | end-to-end API test against the running server (register → analyze → duplicate → idempotent retry → invalid images → collection) |
+| `npm run seed` | **test data**: 5 students (`jordan`, `maya`, `alex`, `priya`, `sam`, password `password123`) with cards, duplicates, and wishlists. Everything is flagged `isSeed`. `npm run seed -- --reset` removes it. |
+| `npm run test:api -w server` | auth, profile, and collection-permission checks (needs seed data; works with any AI provider) |
+| `npm run smoke` | discovery pipeline test (register → analyze → duplicate → idempotent retry → invalid images). Uses synthetic images, so run it with the **mock** AI (empty `AI_API_KEY`) |
+| `npm run cleanup:test-users -w server` | delete accounts created by the test scripts (`smoke_*`, `ui_*`, `real_*`, `api_*`) |
 | `npm run build` | production client build |
+
+The seed data deliberately does **not** include the Southern Live Oak (the live-demo subject). That card is only ever created by photographing one.
+
+### Using MongoDB Atlas
+Put the connection string in `MONGODB_URI`. The database name comes from `MONGODB_DB` (default `campus-discovery`).
+In Atlas → **Security → Network Access**, allow your IP. Campus and mobile IPs change often, so `0.0.0.0/0` is the
+practical choice for a hackathon (use a strong DB password). A TLS "alert number 80" error at startup means the IP is blocked.
 
 ## Status
 
 - ✅ **Phase 1: Core discovery.** Camera → upload → AI → card → rarity → XP → MongoDB → reveal → collection
-- ⏳ Phase 2: Collection polish (profile, favorites, tradable flag)
+- ✅ **Phase 2: Collection.** Profiles (rarest card, favorites, explorer style, recent finds), favorite and tradable flags per copy, collection filters, 15 levels, seed data
 - ⏳ Phase 3: Wishlist and trading
 - ⏳ Phase 4: Missions, group events, rewards, achievements
 - ⏳ Phase 5: Routes

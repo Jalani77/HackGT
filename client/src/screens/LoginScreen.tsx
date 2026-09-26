@@ -2,6 +2,13 @@ import { motion } from 'motion/react';
 import { useState, type FormEvent } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 
+/** Turn server validation messages ("username: Too small…") into plain guidance. */
+function friendlyAuthError(message: string): string {
+  if (message.startsWith('username')) return 'Usernames are 3–24 characters: letters, numbers, or underscores (no spaces).';
+  if (message.startsWith('password')) return 'Passwords need at least 6 characters.';
+  return message;
+}
+
 export function LoginScreen() {
   const { login } = usePlayer();
   const [mode, setMode] = useState<'login' | 'register'>('register');
@@ -43,6 +50,8 @@ export function LoginScreen() {
           onChange={(e) => setUsername(e.target.value)}
           placeholder="Username"
           autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           autoComplete="username"
           className="rounded-2xl bg-white/8 px-4 py-3.5 outline-none ring-1 ring-white/10 focus:ring-accent/60"
         />
@@ -54,7 +63,10 @@ export function LoginScreen() {
           autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           className="rounded-2xl bg-white/8 px-4 py-3.5 outline-none ring-1 ring-white/10 focus:ring-accent/60"
         />
-        {error && <p className="text-sm text-red-300">{error}</p>}
+        {mode === 'register' && !error && (
+          <p className="text-xs text-white/45">Username: 3–24 letters, numbers or _ · Password: 6+ characters</p>
+        )}
+        {error && <p className="text-sm text-red-300">{friendlyAuthError(error)}</p>}
         <button
           disabled={busy || !username || !password}
           className="mt-1 rounded-2xl bg-accent py-4 font-display text-lg font-bold text-ink transition active:scale-95 disabled:opacity-50"

@@ -4,9 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "dev": "tsx watch --clear-screen=false --include ../.env --include .env src/index.ts",
     "start": "tsx src/index.ts",
     "smoke": "tsx src/scripts/smokeTest.ts",
+    "seed": "tsx src/scripts/seed.ts",
+    "test:api": "tsx src/scripts/apiTest.ts",
+    "cleanup:test-users": "tsx src/scripts/cleanupTestUsers.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

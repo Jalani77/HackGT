@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 import { currentUser } from '../middleware/auth';
 import { CollectionService } from '../services/CollectionService';
+import { ProfileService } from '../services/ProfileService';
 import { UserService } from '../services/UserService';
 import { AppError } from '../utils/AppError';
 
@@ -11,6 +13,12 @@ async function resolveUser(req: Request) {
   return user;
 }
 
+// Only these fields are player-editable; strict() rejects attempts to set anything else (xp, ownerId, …).
+const copyPatch = z
+  .object({ tradable: z.boolean().optional(), favorite: z.boolean().optional() })
+  .strict()
+  .refine((p) => Object.keys(p).length > 0, 'nothing to update');
+
 export const userController = {
   async collection(req: Request, res: Response) {
     const user = await resolveUser(req);
@@ -18,6 +26,12 @@ export const userController = {
   },
 
   async profile(req: Request, res: Response) {
-    res.json(await UserService.toPublic(await resolveUser(req)));
+    const user = await resolveUser(req);
+    res.json(await ProfileService.build(user, String(currentUser(req)._id)));
+  },
+
+  async updateCopy(req: Request, res: Response) {
+    const patch = copyPatch.parse(req.body);
+    res.json(await CollectionService.updateCopy(currentUser(req)._id, String(req.params.copyId), patch));
   },
 };

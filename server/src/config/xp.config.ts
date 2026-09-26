@@ -33,5 +33,10 @@ export const xpConfig = {
     { xp: 2700, title: 'Curator' },
     { xp: 3700, title: 'Grand Naturalist' },
     { xp: 5000, title: 'Campus Mythmaker' },
+    { xp: 6500, title: 'Wayfinder' },
+    { xp: 8200, title: 'Keeper of the Quad' },
+    { xp: 10200, title: 'Living Landmark' },
+    { xp: 12500, title: 'Campus Oracle' },
+    { xp: 15000, title: 'Legend of the Yellow Jacket' },
   ],
 };

@@ -12,6 +12,7 @@ const schema = z.object({
   NODE_ENV: z.string().default('development'),
   PORT: z.coerce.number().default(4000),
   MONGODB_URI: z.string().optional().default(''),
+  MONGODB_DB: z.string().default('campus-discovery'),
   JWT_SECRET: z.string().default(''),
   AI_PROVIDER: z.enum(['openai', 'mock']).default('openai'),
   AI_API_KEY: z.string().optional().default(''),

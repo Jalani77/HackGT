@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import type { CardCategory, DiscoveryResult } from '../../../shared/types';
+import type { CardCategory, DiscoveryResult, RecentDiscovery } from '../../../shared/types';
 import type { Rarity } from '../../../shared/rarity';
 import { discoveryConfig } from '../config/discovery.config';
 import { env } from '../config/env';
@@ -226,7 +226,7 @@ export const DiscoveryService = {
     };
   },
 
-  async listMine(userId: Types.ObjectId, limit = 30) {
+  async listMine(userId: Types.ObjectId, limit = 30): Promise<RecentDiscovery[]> {
     const items = await Discovery.find({ userId }).sort({ createdAt: -1 }).limit(limit).lean();
     return items.map((d) => ({
       id: String(d._id),

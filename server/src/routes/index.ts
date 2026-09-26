@@ -44,3 +44,6 @@ api.get('/cards/:id', requireAuth, cardController.get);
 // Users
 api.get('/users/:id/collection', requireAuth, userController.collection);
 api.get('/users/:id/profile', requireAuth, userController.profile);
+
+// Player-controlled flags on your own copies (favorite, tradable)
+api.patch('/collection/:copyId', requireAuth, userController.updateCopy);

@@ -32,6 +32,7 @@ const cardSchema = new Schema(
     },
     firstDiscoveredBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     source: { type: String, enum: ['discovery', 'event', 'mission', 'route'], default: 'discovery' },
+    isSeed: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

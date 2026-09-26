@@ -16,6 +16,8 @@ const userSchema = new Schema(
     // Card catalog ids this student is looking for (Phase 3). Indexed for "who wants this?".
     wishlist: { type: [{ type: Schema.Types.ObjectId, ref: 'Card' }], default: [], index: true },
     achievements: { type: [{ key: String, unlockedAt: Date }], default: [] },
+    // Marks test data created by scripts/seed.ts so it can be removed with `npm run seed -- --reset`.
+    isSeed: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

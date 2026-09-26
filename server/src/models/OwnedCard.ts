@@ -20,6 +20,7 @@ const ownedCardSchema = new Schema(
       default: null,
     },
     acquiredAt: { type: Date, default: Date.now },
+    isSeed: { type: Boolean, default: false },
   },
   { timestamps: true, collection: 'collections' },
 );
