@@ -1,8 +1,16 @@
 import { motion } from 'motion/react';
+import { Link } from 'react-router-dom';
 import type { PublicUser } from '@shared/types';
 
+const OBJECTIVE_LINK: Record<NonNullable<PublicUser['objective']>['kind'], (id: string) => string> = {
+  event: (id) => `/events/${id}`,
+  route: (id) => `/routes/${id}`,
+  mission: () => '/quests',
+};
+
 /** Floating player HUD over the camera: level ring, XP progress, card count, current objective. */
-export function CameraHUD({ player, objective }: { player: PublicUser; objective: string }) {
+export function CameraHUD({ player }: { player: PublicUser }) {
+  const objective = player.objective;
   const { level, xp, currentLevelXp, nextLevelXp, title } = player.level;
   const progress = nextLevelXp ? (xp - currentLevelXp) / (nextLevelXp - currentLevelXp) : 1;
   const r = 20;
@@ -52,10 +60,42 @@ export function CameraHUD({ player, objective }: { player: PublicUser; objective
         </motion.div>
       </div>
 
-      <div className="self-start rounded-2xl bg-black/45 px-3 py-2 text-xs backdrop-blur-md">
-        <span className="font-display font-bold text-accent-2">OBJECTIVE</span>
-        <span className="ml-2 text-white/85">{objective}</span>
-      </div>
+      {objective ? (
+        <Link
+          to={OBJECTIVE_LINK[objective.kind](objective.id)}
+          className="pointer-events-auto max-w-[85%] self-start rounded-2xl bg-black/45 px-3 py-2 text-xs backdrop-blur-md active:scale-95"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-display font-bold text-accent-2">OBJECTIVE</span>
+            <span className="truncate text-white/85">
+              {objective.icon} {objective.label}
+            </span>
+            {objective.target > 0 && (
+              <span className="shrink-0 font-display font-bold">
+                {objective.progress}/{objective.target}
+              </span>
+            )}
+          </div>
+          {objective.target > 0 && (
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/15">
+              <div
+                className="h-full rounded-full bg-accent-2"
+                style={{ width: `${Math.min(100, (objective.progress / objective.target) * 100)}%` }}
+              />
+            </div>
+          )}
+        </Link>
+      ) : (
+        <Link
+          to="/quests"
+          className="pointer-events-auto self-start rounded-2xl bg-black/45 px-3 py-2 text-xs backdrop-blur-md active:scale-95"
+        >
+          <span className="font-display font-bold text-accent-2">OBJECTIVE</span>
+          <span className="ml-2 text-white/85">
+            {player.stats.cardsOwned === 0 ? 'Photograph anything interesting around you' : 'Pick a mission →'}
+          </span>
+        </Link>
+      )}
     </div>
   );
 }

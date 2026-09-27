@@ -1,6 +1,7 @@
 import { rarityRank } from '../../../shared/rarity';
 import type { CardCategory, CollectionEntry, ProfileResponse } from '../../../shared/types';
 import type { UserDoc } from '../models/User';
+import { AchievementService } from './AchievementService';
 import { CollectionService } from './CollectionService';
 import { DiscoveryService } from './DiscoveryService';
 import { UserService } from './UserService';
@@ -8,10 +9,11 @@ import { UserService } from './UserService';
 export const ProfileService = {
   /** Profile built from the player's real collection. Contains no location data. */
   async build(user: UserDoc, viewerId: string): Promise<ProfileResponse> {
-    const [publicUser, collection, recentDiscoveries] = await Promise.all([
+    const [publicUser, collection, recentDiscoveries, achievements] = await Promise.all([
       UserService.toPublic(user, { isSelf: String(user._id) === viewerId }),
       CollectionService.getCollection(String(user._id), user.campusId),
       DiscoveryService.listMine(user._id, 6),
+      AchievementService.list(user._id),
     ]);
     const { entries } = collection;
 
@@ -33,6 +35,7 @@ export const ProfileService = {
       tradableCount: entries.reduce((n, e) => n + e.copies.filter((c) => c.tradable).length, 0),
       categories: [...counts].map(([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count),
       recentDiscoveries,
+      achievements,
     };
   },
 };

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authController } from '../controllers/authController';
 import { cardController } from '../controllers/cardController';
+import { communityController } from '../controllers/communityController';
+import { routeController } from '../controllers/routeController';
 import { discoveryController } from '../controllers/discoveryController';
 import { socialController } from '../controllers/socialController';
 import { userController } from '../controllers/userController';
@@ -64,3 +66,29 @@ api.post('/trades', requireAuth, rateLimited(20, 'Too many trade offers. Take a 
 api.post('/trades/:id/accept', requireAuth, socialController.acceptTrade);
 api.post('/trades/:id/reject', requireAuth, socialController.rejectTrade);
 api.post('/trades/:id/cancel', requireAuth, socialController.cancelTrade);
+
+// Missions (definitions live in MongoDB; progress is only advanced server-side by real activity)
+api.get('/missions', requireAuth, communityController.missions);
+api.post('/missions/:id/join', requireAuth, communityController.joinMission);
+api.post('/missions/:id/leave', requireAuth, communityController.leaveMission);
+
+// Group events
+api.get('/events', requireAuth, communityController.events);
+api.post('/events', requireAuth, rateLimited(10, 'Too many events created. Try again in a minute.'), communityController.createEvent);
+api.get('/events/:id', requireAuth, communityController.event);
+api.post('/events/:id/join', requireAuth, communityController.joinEvent);
+api.post('/events/:id/leave', requireAuth, communityController.leaveEvent);
+// Rate-limited so check-in codes can't be brute-forced.
+api.post('/events/:id/checkin', requireAuth, rateLimited(10, 'Too many check-in attempts. Wait a minute.'), communityController.checkIn);
+
+// Rewards / student deals, and achievements
+api.get('/rewards', requireAuth, communityController.rewards);
+api.post('/rewards/:id/redeem', requireAuth, communityController.redeem);
+api.get('/users/:id/achievements', requireAuth, communityController.achievements);
+
+// Exploration routes (Phase 5)
+api.get('/routes', requireAuth, routeController.list);
+api.post('/routes', requireAuth, rateLimited(10, 'Too many routes created. Try again in a minute.'), routeController.create);
+api.get('/routes/:id', requireAuth, routeController.get);
+api.post('/routes/:id/start', requireAuth, routeController.start);
+api.post('/routes/:id/abandon', requireAuth, routeController.abandon);

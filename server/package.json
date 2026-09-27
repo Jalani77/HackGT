@@ -10,6 +10,7 @@
     "seed": "tsx src/scripts/seed.ts",
     "test:api": "tsx src/scripts/apiTest.ts",
     "test:trades": "tsx src/scripts/tradeTest.ts",
+    "test:community": "tsx src/scripts/communityTest.ts",
     "cleanup:test-users": "tsx src/scripts/cleanupTestUsers.ts",
     "typecheck": "tsc --noEmit"
   },

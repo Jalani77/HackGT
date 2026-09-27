@@ -13,8 +13,11 @@ import { recognitionService, type ObjectAnalysis } from './ai';
 import { CardService } from './CardService';
 import { CollectionService, toCopyDTO } from './CollectionService';
 import { ImageService } from './ImageService';
+import { emptyProgress } from './ProgressCollector';
+import { ProgressService } from './ProgressService';
 import { RarityService } from './RarityService';
 import { storageService, type StoredObject } from './storage';
+import { UnlockService } from './UnlockService';
 import { UserService } from './UserService';
 import { XPService } from './XPService';
 
@@ -22,7 +25,7 @@ const isDuplicateKeyError = (e: unknown) => (e as { code?: number })?.code === 1
 
 /**
  * The core pipeline:
- * image → validate/process → AI → gates → storage → card → rarity → copy → XP.
+ * image → validate/process → AI → gates → storage → card → rarity → copy → XP → progress.
  */
 export const DiscoveryService = {
   async analyze(params: { user: UserDoc; image: Buffer; clientCaptureId: string }): Promise<DiscoveryResult> {
@@ -129,8 +132,26 @@ export const DiscoveryService = {
       });
 
       await User.updateOne({ _id: user._id }, { $inc: { 'stats.discoveries': 1 } });
-      const { levelUp } = await XPService.award(user._id, xp.awarded);
+      await XPService.award(user._id, xp.awarded);
+
+      // Missions, routes, group events, achievements. Never fails the discovery itself.
+      const progress = await ProgressService.safeRun(user._id, [
+        {
+          type: 'discovery',
+          key: `discovery:${discoveryId}`,
+          discoveryId,
+          cardId: card._id,
+          category: card.category as CardCategory,
+          rarity: card.rarity as Rarity,
+          isLandmark: !!card.flags?.isLandmark,
+          isNewCard: !alreadyOwned,
+          at: new Date(),
+        },
+      ]);
+
       const freshUser = (await User.findById(user._id))!;
+      // user.xp is the value before this request, so the level-up covers discovery + progress XP.
+      const levelUp = await UnlockService.levelUp(user.campusId, user.xp, freshUser.xp);
 
       const [cardDTO] = await CardService.toDTOs([card]);
       return {
@@ -143,6 +164,7 @@ export const DiscoveryService = {
         confidence: analysis.confidence,
         xp,
         levelUp,
+        progress,
         player: await UserService.toPublic(freshUser, { isSelf: true }),
         aiProvider: recognitionService.provider,
       };
@@ -221,6 +243,7 @@ export const DiscoveryService = {
       confidence,
       xp: { awarded: d.xpAwarded, breakdown: [{ reason: 'Discovery', amount: d.xpAwarded }] },
       levelUp: null,
+      progress: emptyProgress(),
       player: await UserService.toPublic(freshUser, { isSelf: true }),
       aiProvider: d.aiAnalysis?.provider ?? 'unknown',
     };

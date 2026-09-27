@@ -15,11 +15,15 @@ export const xpConfig = {
   firstOnCampusBonus: 25,
   newCategoryBonus: 15,
 
-  // Used by later phases.
+  trade: 25,
+  /** Defaults; each mission/event/route document can set its own reward XP. */
   missionComplete: 100,
   groupEvent: 250,
-  trade: 25,
+  /** Student-hosted events pay less than official ones (and never mint cards). */
+  hostedEvent: 100,
   routeComplete: 150,
+  /** Paid to a route's creator each time another student finishes it. */
+  routeCreatorBonus: 20,
 
   /** Cumulative XP required to reach each level (index 0 = level 1). */
   levels: [

@@ -36,7 +36,9 @@ const cardSchema = new Schema(
       uniqueDiscoverers: { type: Number, default: 0 },
     },
     firstDiscoveredBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-    source: { type: String, enum: ['discovery', 'event', 'mission', 'route'], default: 'discovery' },
+    // Special cards (event/mission/route/reward) are minted by organizer tooling, never by photos.
+    source: { type: String, enum: ['discovery', 'event', 'mission', 'route', 'reward'], default: 'discovery', index: true },
+    earnHint: { type: String, default: '' },
     isSeed: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },

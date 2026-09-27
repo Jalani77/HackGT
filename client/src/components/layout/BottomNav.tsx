@@ -2,10 +2,10 @@ import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext';
 
-// Only screens that exist are listed; Missions/Events are added as each phase ships.
 const TABS = [
   { to: '/', label: 'Explore', icon: '📷' },
   { to: '/collection', label: 'Collection', icon: '🃏' },
+  { to: '/quests', label: 'Quests', icon: '🎯' },
   { to: '/social', label: 'Social', icon: '🤝' },
   { to: '/profile', label: 'Profile', icon: '🧑‍🚀' },
 ];
@@ -32,7 +32,7 @@ export function BottomNav() {
           to={t.to}
           end
           className={({ isActive }) =>
-            `flex min-w-20 flex-col items-center gap-0.5 rounded-xl px-3 py-1 text-[11px] font-semibold transition ${
+            `flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1 text-[11px] font-semibold transition ${
               isActive ? 'text-accent' : 'text-white/50'
             }`
           }

@@ -6,7 +6,9 @@ import { OwnedCard } from '../models/OwnedCard';
 import { Trade, type TradeDoc } from '../models/Trade';
 import { User, type UserDoc } from '../models/User';
 import { AppError } from '../utils/AppError';
+import { ProgressService } from './ProgressService';
 import { cardMinis } from './SocialService';
+import { UnlockService } from './UnlockService';
 import { UserService } from './UserService';
 import { XPService } from './XPService';
 
@@ -112,16 +114,23 @@ export const TradeService = {
       ),
     ]);
 
-    const [mine] = await Promise.all([
+    await Promise.all([
       XPService.award(trade.toUserId, xpConfig.trade),
       XPService.award(trade.fromUserId, xpConfig.trade),
+    ]);
+    // Trades count toward missions/achievements for both students.
+    const activity = { type: 'trade' as const, key: `trade:${trade._id}` };
+    const [progress] = await Promise.all([
+      ProgressService.safeRun(trade.toUserId, [activity]),
+      ProgressService.safeRun(trade.fromUserId, [activity]),
     ]);
     const fresh = (await User.findById(user._id))!;
     const done = (await Trade.findById(trade._id))!;
     return {
       trade: (await this.toDTOs([done], user._id))[0],
       xpAwarded: xpConfig.trade,
-      levelUp: mine.levelUp,
+      levelUp: await UnlockService.levelUp(user.campusId, user.xp, fresh.xp),
+      progress,
       player: await UserService.toPublic(fresh, { isSelf: true }),
     };
   },

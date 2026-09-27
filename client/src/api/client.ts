@@ -5,12 +5,21 @@ import type {
   CardDTO,
   CardSocial,
   CollectionResponse,
+  AchievementDTO,
+  ActionResult,
   CopyPatch,
+  CreateEventRequest,
+  CreateRouteRequest,
   CreateTradeRequest,
   DiscoveryResult,
+  EventDTO,
+  MissionDTO,
   OwnedCardDTO,
   ProfileResponse,
   PublicUser,
+  RedeemResult,
+  RewardDTO,
+  RouteDTO,
   StudentListItem,
   TradeAcceptResult,
   TradeDTO,
@@ -108,4 +117,31 @@ export const api = {
   acceptTrade: (id: string) => request<TradeAcceptResult>(`/trades/${id}/accept`, { method: 'POST' }),
   rejectTrade: (id: string) => request<TradeDTO>(`/trades/${id}/reject`, { method: 'POST' }),
   cancelTrade: (id: string) => request<TradeDTO>(`/trades/${id}/cancel`, { method: 'POST' }),
+
+  // Missions
+  missions: () => request<MissionDTO[]>('/missions'),
+  joinMission: (id: string) => request<MissionDTO>(`/missions/${id}/join`, { method: 'POST' }),
+  leaveMission: (id: string) => request<{ ok: true }>(`/missions/${id}/leave`, { method: 'POST' }),
+
+  // Group events
+  events: () => request<EventDTO[]>('/events'),
+  event: (id: string) => request<EventDTO>(`/events/${id}`),
+  createEvent: (body: CreateEventRequest) => request<EventDTO>('/events', { method: 'POST', body: JSON.stringify(body) }),
+  joinEvent: (id: string) => request<EventDTO>(`/events/${id}/join`, { method: 'POST' }),
+  leaveEvent: (id: string) => request<EventDTO>(`/events/${id}/leave`, { method: 'POST' }),
+  checkIn: (id: string, code: string) =>
+    request<ActionResult<EventDTO>>(`/events/${id}/checkin`, { method: 'POST', body: JSON.stringify({ code }) }),
+
+  // Rewards & achievements
+  rewards: () => request<RewardDTO[]>('/rewards'),
+  redeem: (id: string) => request<ActionResult<RedeemResult>>(`/rewards/${id}/redeem`, { method: 'POST' }),
+  achievements: (userId = 'me') => request<AchievementDTO[]>(`/users/${userId}/achievements`),
+
+  // Routes
+  routes: () => request<RouteDTO[]>('/routes'),
+  route: (id: string) => request<RouteDTO>(`/routes/${id}`),
+  createRoute: (body: CreateRouteRequest) =>
+    request<ActionResult<RouteDTO>>('/routes', { method: 'POST', body: JSON.stringify(body) }),
+  startRoute: (id: string) => request<RouteDTO>(`/routes/${id}/start`, { method: 'POST' }),
+  abandonRoute: (id: string) => request<RouteDTO>(`/routes/${id}/abandon`, { method: 'POST' }),
 };
