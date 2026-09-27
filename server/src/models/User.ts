@@ -12,6 +12,10 @@ const userSchema = new Schema(
     stats: {
       discoveries: { type: Number, default: 0 },
       trades: { type: Number, default: 0 },
+      missionsCompleted: { type: Number, default: 0 },
+      eventsAttended: { type: Number, default: 0 },
+      routesCompleted: { type: Number, default: 0 },
+      routesCreated: { type: Number, default: 0 },
     },
     // Card catalog ids this student is looking for (Phase 3). Indexed for "who wants this?".
     wishlist: { type: [{ type: Schema.Types.ObjectId, ref: 'Card' }], default: [], index: true },

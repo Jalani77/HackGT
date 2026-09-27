@@ -5,6 +5,8 @@
  *   npm run seed            → replace existing seed data with a fresh set
  *   npm run seed -- --reset → remove all seed data and exit
  *
+ * Missions, events, rewards, routes, and their special reward cards come from seedCommunity.ts.
+ *
  * The discovery pipeline does not depend on any of this. Real cards are only created
  * by photographing things. The live-demo subject (Southern Live Oak) is intentionally NOT seeded.
  */
@@ -22,10 +24,13 @@ import { Card, type CardDoc } from '../models/Card';
 import { Discovery } from '../models/Discovery';
 import { OwnedCard } from '../models/OwnedCard';
 import { User } from '../models/User';
+import { ACHIEVEMENTS } from '../config/achievements.config';
+import { AchievementService } from '../services/AchievementService';
 import { RarityService } from '../services/RarityService';
 import { storageService } from '../services/storage';
 import { XPService } from '../services/XPService';
 import { toCanonicalKey } from '../utils/gameEnvironment';
+import { removeSeedContent, removeSeedPlayerActivity, seedCommunity } from './seedCommunity';
 
 const SEED_PASSWORD = 'password123';
 
@@ -184,11 +189,11 @@ async function commonsArt(file: string): Promise<{ art: Buffer; credit: Credit }
 }
 
 /**
- * Stock photo with a local cache (server/.data/seed-photos, gitignored). Once a photo has been
- * downloaded, re-seeding never needs the network again, and a failed download can't replace it.
+ * Stock photo with a local cache (CACHE_DIR/seed-photos). Once a photo has been downloaded,
+ * re-seeding never needs the network again, and a failed download can't replace it.
  */
 async function stockArt(key: string, file: string): Promise<{ art: Buffer; credit: Credit } | null> {
-  const dir = path.join(env.serverRoot, '.data', 'seed-photos');
+  const dir = path.join(env.cacheDir, 'seed-photos');
   const imgPath = path.join(dir, `${key}.jpg`);
   const creditPath = path.join(dir, `${key}.json`);
   try {
@@ -198,9 +203,14 @@ async function stockArt(key: string, file: string): Promise<{ art: Buffer; credi
   }
   const fetched = await commonsArt(file);
   if (fetched) {
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(imgPath, fetched.art);
-    await fs.writeFile(creditPath, JSON.stringify(fetched.credit));
+    // Caching is best-effort: a full or missing cache drive shouldn't break seeding.
+    try {
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(imgPath, fetched.art);
+      await fs.writeFile(creditPath, JSON.stringify(fetched.credit));
+    } catch (err) {
+      console.warn(`[seed] couldn't cache "${key}" in ${dir}: ${(err as Error).message}`);
+    }
   }
   return fetched;
 }
@@ -255,14 +265,16 @@ const STUDENTS: SeedStudent[] = [
 async function removeSeed() {
   const seedUsers = await User.find({ isSeed: true }).select('_id').lean();
   const ids = seedUsers.map((u) => u._id);
-  const seedCardIds = (await Card.find({ isSeed: true }).select('_id').lean()).map((c) => c._id);
+  // Photo cards only. Special reward cards are upserted by key so real players' copies survive re-seeding.
+  const seedCardIds = (await Card.find({ isSeed: true, source: 'discovery' }).select('_id').lean()).map((c) => c._id);
   // Real players may have seed cards on their wishlist.
   await User.updateMany({ wishlist: { $in: seedCardIds } }, { $pull: { wishlist: { $in: seedCardIds } } });
   const [d, o, c, u] = await Promise.all([
     Discovery.deleteMany({ userId: { $in: ids } }),
     OwnedCard.deleteMany({ $or: [{ isSeed: true }, { ownerId: { $in: ids } }] }),
-    Card.deleteMany({ isSeed: true }),
+    Card.deleteMany({ _id: { $in: seedCardIds } }),
     User.deleteMany({ isSeed: true }),
+    removeSeedPlayerActivity(ids),
   ]);
   console.log(
     `[seed] removed ${u.deletedCount} users, ${c.deletedCount} cards, ${o.deletedCount} copies, ${d.deletedCount} discoveries`,
@@ -423,6 +435,20 @@ async function seed() {
   }
 
   console.log(`[seed] created ${users.length} students, ${cards.filter(Boolean).length} cards, ${copies} copies`);
+  await seedCommunity(campusId, new Map(users.map((u) => [u.username, u])));
+
+  // Seed students get their history in bulk, so mark the achievements it already earns as
+  // unlocked (no XP; their XP is set above). Otherwise their next action would "unlock" a
+  // backlog of unrelated badges at once.
+  for (const u of users) {
+    const { metrics } = await AchievementService.metrics(u._id);
+    const earned = ACHIEVEMENTS.filter((a) => metrics[a.metric] >= a.target).map((a) => ({
+      key: a.key,
+      unlockedAt: new Date(Date.now() - 864e5),
+    }));
+    await User.updateOne({ _id: u._id }, { $set: { achievements: earned } });
+  }
+
   if (placeholders.length) {
     console.warn(
       `\n[seed] ⚠ WARNING: ${placeholders.length} card(s) used placeholder art because the stock photo couldn't be downloaded:\n` +
@@ -434,7 +460,10 @@ async function seed() {
 
 await connectDatabase();
 try {
-  if (process.argv.includes('--reset')) await removeSeed();
+  if (process.argv.includes('--reset')) {
+    await removeSeed();
+    await removeSeedContent();
+  }
   else await seed();
 } finally {
   await disconnectDatabase();

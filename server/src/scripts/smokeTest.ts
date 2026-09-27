@@ -57,7 +57,9 @@ check('analyze → 201', first.status === 201, first.body);
 check('card has name/fact/rarity', !!first.body.card?.name && !!first.body.card?.funFact && !!first.body.card?.rarity);
 check('xp awarded > 0', first.body.xp?.awarded > 0, first.body.xp);
 check('not a duplicate', first.body.isDuplicate === false);
-check('player xp updated', first.body.player?.level?.xp === first.body.xp?.awarded, first.body.player);
+// Total XP = the discovery itself + anything it unlocked (missions, achievements like "First Steps").
+const totalXp = (r: any) => r.body.xp.awarded + (r.body.progress?.xp ?? 0);
+check('player xp updated', first.body.player?.level?.xp === totalXp(first), first.body.player);
 console.log(`      → ${first.body.card?.name} [${first.body.card?.rarity} ${first.body.card?.rarityScore}] +${first.body.xp?.awarded}xp via ${first.body.aiProvider}`);
 
 const imgRes = await fetch(`${base}${first.body.card?.imageUrl}`);
@@ -84,7 +86,7 @@ check('collection: 2 unique cards, 3 copies', col.totals?.uniqueOwned === 2 && c
 check('collection groups duplicate copies', col.entries?.some((e: any) => e.copies.length === 2));
 
 const me = (await (await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })).json()) as any;
-const expectedXp = first.body.xp.awarded + dup.body.xp.awarded + a.body.xp.awarded;
+const expectedXp = totalXp(first) + totalXp(dup) + totalXp(a);
 check('persisted xp matches awards (retry not double-counted)', me.level?.xp === expectedXp, { got: me.level?.xp, expectedXp });
 check('persisted discoveries = 3', me.stats?.discoveries === 3, me.stats);
 

@@ -85,7 +85,8 @@ export const CardService = {
   },
 
   async knownNames(campusId: string, limit = 80): Promise<string[]> {
-    const cards = await Card.find({ campusId }).sort({ updatedAt: -1 }).limit(limit).select('name').lean();
+    // Only photo-discoverable cards: special event/mission cards must never be "recognized".
+    const cards = await Card.find({ campusId, source: 'discovery' }).sort({ updatedAt: -1 }).limit(limit).select('name').lean();
     return cards.map((c) => c.name);
   },
 
@@ -155,6 +156,7 @@ export const CardService = {
         },
         firstDiscoveredBy: discovererId ? { id: discovererId, username: names.get(discovererId) ?? 'unknown' } : null,
         source: c.source as CardDTO['source'],
+        earnHint: c.earnHint || null,
         createdAt: c.createdAt.toISOString(),
       };
     });

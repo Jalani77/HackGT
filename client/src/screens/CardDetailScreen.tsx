@@ -77,7 +77,14 @@ export function CardDetailScreen() {
             </p>
           )}
 
-          {!mine && (
+          {card.earnHint && (
+            <p className="-mt-2 rounded-xl bg-accent-2/10 p-3 text-center text-sm ring-1 ring-accent-2/40">
+              <span className="font-display font-bold text-accent-2">SPECIAL CARD</span>
+              <br />
+              {card.earnHint}
+            </p>
+          )}
+          {!mine && !card.earnHint && (
             <p className="-mt-2 rounded-xl bg-white/5 p-3 text-center text-sm text-white/60 ring-1 ring-white/10">
               🔒 You haven't collected this yet. Find one on campus or trade for it!
             </p>

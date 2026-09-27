@@ -5,6 +5,7 @@ import type { StudentListItem, TradeDTO } from '@shared/types';
 import { api } from '../api/client';
 import { MiniCard } from '../components/social/MiniCard';
 import { Avatar } from '../components/social/StudentChip';
+import { useCelebrate } from '../context/CelebrationContext';
 import { usePlayer } from '../context/PlayerContext';
 
 export function SocialScreen() {
@@ -121,6 +122,7 @@ function MatchRow({ label, color, cards }: { label: string; color: string; cards
 
 function Trades() {
   const { setPlayer, refresh } = usePlayer();
+  const celebrate = useCelebrate();
   const [trades, setTrades] = useState<TradeDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -143,11 +145,9 @@ function Trades() {
       if (action === 'accept') {
         const res = await api.acceptTrade(trade.id);
         setPlayer(res.player);
-        setToast(
-          res.levelUp
-            ? `Trade complete! +${res.xpAwarded} XP · LEVEL UP → ${res.levelUp.to}`
-            : `Trade complete! +${res.xpAwarded} XP. Cards added to your collection.`,
-        );
+        setToast(`Trade complete! +${res.xpAwarded} XP. Cards added to your collection.`);
+        // Missions ("Trade Partner"), achievements ("Fair Trade"), and any level-up.
+        celebrate(res.progress, res.levelUp, { title: 'Trade complete! 🤝' });
       } else {
         await (action === 'reject' ? api.rejectTrade(trade.id) : api.cancelTrade(trade.id));
         await refresh();

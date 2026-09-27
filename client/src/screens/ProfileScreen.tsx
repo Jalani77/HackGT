@@ -40,7 +40,7 @@ export function ProfileScreen() {
   if (error) return <p className="p-10 text-center text-red-300">{error}</p>;
   if (!profile) return <p className="p-10 text-center text-white/50">Loading profile…</p>;
 
-  const { user, rarestCard, favorites, categories, recentDiscoveries, isMe } = profile;
+  const { user, rarestCard, favorites, categories, recentDiscoveries, isMe, achievements } = profile;
   const rarest = rarestCard ? RARITY_DISPLAY[rarestCard.card.rarity] : null;
 
   return (
@@ -89,7 +89,50 @@ export function ProfileScreen() {
           <Stat value={user.stats.uniqueCards} label="Unique" />
           <Stat value={user.stats.discoveries} label="Found" />
           <Stat value={profile.tradableCount} label="Tradable" />
+          <Stat value={user.stats.trades} label="Trades" />
+          <Stat value={user.stats.missionsCompleted} label="Missions" />
+          <Stat value={user.stats.eventsAttended} label="Events" />
+          <Stat value={user.stats.routesCompleted} label="Routes" />
         </section>
+
+        {isMe && (
+          <Link
+            to="/rewards"
+            className="flex items-center justify-between rounded-2xl bg-accent-2/10 px-4 py-3.5 ring-1 ring-accent-2/40 active:scale-[0.98]"
+          >
+            <span className="font-display font-bold">🎁 Student deals & rewards</span>
+            <span className="text-accent-2">›</span>
+          </Link>
+        )}
+
+        {achievements.length > 0 && (
+          <section>
+            <SectionTitle>
+              Achievements · {achievements.filter((a) => a.unlockedAt).length}/{achievements.length}
+            </SectionTitle>
+            <div className="mt-2 grid grid-cols-4 gap-2">
+              {[...achievements]
+                .sort((a, b) => Number(!!b.unlockedAt) - Number(!!a.unlockedAt))
+                .map((a) => (
+                  <div
+                    key={a.key}
+                    title={`${a.title}: ${a.description}`}
+                    className={`flex flex-col items-center rounded-2xl p-2 text-center ring-1 ${
+                      a.unlockedAt ? 'bg-accent-2/10 ring-accent-2/40' : 'bg-white/5 ring-white/10'
+                    }`}
+                  >
+                    <span className={`text-2xl ${a.unlockedAt ? '' : 'opacity-30 grayscale'}`}>{a.icon}</span>
+                    <span className="mt-1 line-clamp-2 text-[10px] font-semibold leading-tight">{a.title}</span>
+                    {!a.unlockedAt && (
+                      <span className="mt-0.5 text-[9px] text-white/40">
+                        {a.progress}/{a.target}
+                      </span>
+                    )}
+                  </div>
+                ))}
+            </div>
+          </section>
+        )}
 
         {/* Rarest card */}
         {rarestCard && rarest && (

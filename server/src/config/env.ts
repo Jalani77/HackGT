@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
@@ -21,6 +22,8 @@ const schema = z.object({
   IMAGE_STORAGE_DRIVER: z.enum(['local']).default('local'),
   IMAGE_STORAGE_URL: z.string().default('/uploads'),
   IMAGE_STORAGE_KEY: z.string().optional().default(''),
+  /** Where re-downloadable caches live (MongoDB binary, seed photos). Empty → server/.cache. */
+  CACHE_DIR: z.string().optional().default(''),
   DEFAULT_CAMPUS_ID: z.string().default('gatech'),
   DEFAULT_CAMPUS_NAME: z.string().default('Georgia Tech'),
 });
@@ -37,14 +40,41 @@ if (!parsed.JWT_SECRET) {
 // Fall back to the mock recognizer only when no key is configured, and say so loudly.
 const aiProvider = parsed.AI_PROVIDER === 'openai' && !parsed.AI_API_KEY ? 'mock' : parsed.AI_PROVIDER;
 if (aiProvider === 'mock') {
-  console.warn('[env] AI_API_KEY not set — using MockRecognitionService (no real identification).');
+  console.warn(
+    parsed.AI_PROVIDER === 'mock'
+      ? '[env] AI_PROVIDER=mock — using MockRecognitionService (no real identification).'
+      : '[env] AI_API_KEY not set — using MockRecognitionService (no real identification).',
+  );
 }
+
+/**
+ * Resolve the cache directory. A configured CACHE_DIR that can't be created (e.g. a removable
+ * drive that isn't plugged in) falls back to the in-project default instead of crashing.
+ */
+function resolveCacheDir(): string {
+  const fallback = path.resolve(serverRoot, '.cache');
+  const configured = parsed.CACHE_DIR.trim();
+  const dir = configured ? path.resolve(configured) : fallback;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  } catch (err) {
+    console.warn(`[env] CACHE_DIR "${dir}" is not available (${(err as Error).message}). Using ${fallback}.`);
+    fs.mkdirSync(fallback, { recursive: true });
+    return fallback;
+  }
+}
+
+const cacheDir = resolveCacheDir();
+// mongodb-memory-server reads this when it downloads/looks up the mongod binary.
+process.env.MONGOMS_DOWNLOAD_DIR ||= path.join(cacheDir, 'mongodb-binaries');
 
 export const env = {
   ...parsed,
   isProd,
   aiProvider,
   serverRoot,
+  cacheDir,
   uploadsDir: path.resolve(serverRoot, 'uploads'),
   devDbPath: path.resolve(serverRoot, '.data/mongo'),
 };

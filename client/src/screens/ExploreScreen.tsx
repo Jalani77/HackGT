@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import type { DiscoveryResult } from '@shared/types';
 import { api, ApiRequestError } from '../api/client';
 import { CameraHUD } from '../components/camera/CameraHUD';
-import { CardReveal } from '../components/cards/CardReveal';
+import { CardReveal, revealFromDiscovery } from '../components/cards/CardReveal';
+import { useCelebrate } from '../context/CelebrationContext';
 import { usePlayer } from '../context/PlayerContext';
 import { useCamera } from '../hooks/useCamera';
 
@@ -26,6 +27,7 @@ const ANALYZING_LINES = ['Scanning shapes…', 'Consulting the field guide…', 
 export function ExploreScreen() {
   const { player, setPlayer } = usePlayer();
   const navigate = useNavigate();
+  const celebrate = useCelebrate();
   const cam = useCamera();
   const fileInput = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: 'camera' });
@@ -75,6 +77,14 @@ export function ExploreScreen() {
     setPhase({ kind: 'camera' });
   }
 
+  /** Close the discovery reveal, then play any reward reveals it earned (mission/event/route cards). */
+  function finishReveal(result: DiscoveryResult, then?: () => void) {
+    backToCamera();
+    // Ticks, badges and level-up were already shown under the card, so no summary sheet.
+    celebrate(result.progress, null, { summary: false });
+    then?.();
+  }
+
   if (!player) return null;
   const cameraLive = cam.status === 'live';
 
@@ -92,10 +102,7 @@ export function ExploreScreen() {
 
       {cameraLive && phase.kind === 'camera' && <Viewfinder />}
 
-      <CameraHUD
-        player={player}
-        objective={player.stats.cardsOwned === 0 ? 'Photograph anything interesting around you' : 'Find something you haven’t collected yet'}
-      />
+      <CameraHUD player={player} />
 
       {/* Torch */}
       {cam.torchSupported && (
@@ -166,9 +173,9 @@ export function ExploreScreen() {
         {phase.kind === 'reveal' && (
           <CardReveal
             key="reveal"
-            result={phase.result}
-            onDone={backToCamera}
-            onViewCard={(id) => navigate(`/card/${id}`)}
+            reveal={revealFromDiscovery(phase.result)}
+            onDone={() => finishReveal(phase.result)}
+            onViewCard={(id) => finishReveal(phase.result, () => navigate(`/card/${id}`))}
           />
         )}
       </AnimatePresence>

@@ -81,6 +81,9 @@ check("proposer can't accept own offer → 404", (await call('POST', `/trades/${
 check("third party can't accept → 404", (await call('POST', `/trades/${tradeId}/accept`, alex.token)).status === 404);
 
 const jordanXpBefore = (await call('GET', '/auth/me', jordan.token)).body.level.xp;
+const unlockedKeys = async (t: string) =>
+  new Set(((await call('GET', '/users/me/achievements', t)).body as any[]).filter((a) => a.unlockedAt).map((a) => a.key));
+const jordanAchievementsBefore = await unlockedKeys(jordan.token);
 // Two simultaneous accepts: exactly one may succeed.
 const [a1, a2] = await Promise.all([
   call('POST', `/trades/${tradeId}/accept`, maya.token),
@@ -99,7 +102,15 @@ check('received copy is marked acquiredVia=trade and not tradable', received.acq
 const jordanWl = (await call('GET', '/users/me/wishlist', jordan.token)).body;
 check('received card removed from wishlist', !jordanWl.some((w: any) => w.card.name === 'Southern Magnolia'), jordanWl.map((w: any) => w.card.name));
 const jordanAfter = (await call('GET', '/auth/me', jordan.token)).body;
-check('proposer also got trade XP + trade count', jordanAfter.level.xp === jordanXpBefore + 25 && jordanAfter.stats.trades === 1, jordanAfter);
+// Trading can also unlock achievements (e.g. "Fair Trade"), which pay their own XP.
+const achievementXp = ((await call('GET', '/users/me/achievements', jordan.token)).body as any[])
+  .filter((a) => a.unlockedAt && !jordanAchievementsBefore.has(a.key))
+  .reduce((n, a) => n + a.xp, 0);
+check(
+  'proposer also got trade XP + trade count',
+  jordanAfter.level.xp === jordanXpBefore + 25 + achievementXp && jordanAfter.stats.trades === 1,
+  { xp: jordanAfter.level.xp, expected: jordanXpBefore + 25 + achievementXp, trades: jordanAfter.stats.trades },
+);
 check('accepting again → 409', (await call('POST', `/trades/${tradeId}/accept`, maya.token)).status === 409);
 
 // ─── Stale offers ────────────────────────────────────────

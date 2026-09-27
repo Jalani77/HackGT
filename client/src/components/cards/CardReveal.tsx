@@ -1,14 +1,64 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
 import { RARITY_DISPLAY, rarityRank } from '@shared/rarity';
-import type { DiscoveryResult } from '@shared/types';
+import type { CardDTO, DiscoveryResult, GrantedReward, LevelUpDTO, ProgressUpdate } from '@shared/types';
+import { ProgressList } from '../progress/ProgressList';
 import { CollectibleCard } from './CollectibleCard';
 import { RarityBadge } from './RarityBadge';
 
 type Stage = 'intro' | 'charge' | 'revealed';
 
+/** Everything the reveal shows. Built from a photo discovery or from a mission/event/route reward. */
+export interface RevealModel {
+  card: CardDTO;
+  imageUrl: string;
+  headline: string;
+  /** Where it came from, e.g. the mission title. */
+  subtitle?: string;
+  xp: { awarded: number; breakdown: { reason: string; amount: number }[] };
+  levelUp?: LevelUpDTO | null;
+  /** Missions/routes/achievements this advanced (shown under the card). */
+  progress?: ProgressUpdate | null;
+  isDuplicate?: boolean;
+  isFirstOnCampus?: boolean;
+  /** Confidence (0–1) when the AI wasn't sure; null otherwise. */
+  lowConfidence?: number | null;
+  mockAi?: boolean;
+  doneLabel: string;
+}
+
+export function revealFromDiscovery(r: DiscoveryResult): RevealModel {
+  return {
+    card: r.card,
+    imageUrl: r.copy.imageUrl,
+    headline: r.isDuplicate ? 'DUPLICATE DISCOVERY' : 'DISCOVERY FOUND!',
+    xp: r.xp,
+    levelUp: r.levelUp,
+    // Rewards get their own reveal afterwards; only the ticks and badges go under this card.
+    progress: { ...r.progress, rewards: [] },
+    isDuplicate: r.isDuplicate,
+    isFirstOnCampus: r.isFirstOnCampus,
+    lowConfidence: r.lowConfidence ? r.confidence : null,
+    mockAi: r.aiProvider === 'mock',
+    doneLabel: 'Keep exploring',
+  };
+}
+
+/** Special-card reward reveal (mission/event/route/perk). Null for XP-only rewards. */
+export function revealFromGrant(g: GrantedReward): RevealModel | null {
+  if (!g.card || !g.copy) return null;
+  return {
+    card: g.card,
+    imageUrl: g.copy.imageUrl,
+    headline: g.headline,
+    subtitle: g.title,
+    xp: { awarded: g.xp, breakdown: g.xp ? [{ reason: g.title, amount: g.xp }] : [] },
+    doneLabel: 'Awesome!',
+  };
+}
+
 interface Props {
-  result: DiscoveryResult;
+  reveal: RevealModel;
   onDone: () => void;
   onViewCard: (cardId: string) => void;
 }
@@ -18,7 +68,7 @@ interface Props {
  * Intensity (timing, shake, particles, rays, full-screen) scales with rarity rank, so it
  * works for any card the AI produces. Tap anywhere to skip ahead.
  */
-export function CardReveal({ result, onDone, onViewCard }: Props) {
+export function CardReveal({ reveal: result, onDone, onViewCard }: Props) {
   const { card } = result;
   const rank = rarityRank(card.rarity);
   const d = RARITY_DISPLAY[card.rarity];
@@ -67,7 +117,8 @@ export function CardReveal({ result, onDone, onViewCard }: Props) {
                 exit={{ y: -20, opacity: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                {result.isDuplicate ? 'DUPLICATE DISCOVERY' : 'DISCOVERY FOUND!'}
+                {result.headline}
+                {result.subtitle && <div className="mt-1 text-base font-medium text-white/70">{result.subtitle}</div>}
               </motion.h2>
             ) : (
               <motion.div
@@ -109,7 +160,7 @@ export function CardReveal({ result, onDone, onViewCard }: Props) {
             }
           >
             <div style={{ backfaceVisibility: 'hidden' }}>
-              <CollectibleCard card={card} imageUrl={result.copy.imageUrl} />
+              <CollectibleCard card={card} imageUrl={result.imageUrl} />
             </div>
             <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
               <CardBack color={d.color} charging={stage === 'charge'} rank={rank} />
@@ -127,7 +178,7 @@ export function CardReveal({ result, onDone, onViewCard }: Props) {
               transition={{ delay: 0.45 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <XPCounter amount={result.xp.awarded} />
+              {result.xp.awarded > 0 && <XPCounter amount={result.xp.awarded} />}
               <div className="flex flex-wrap justify-center gap-1.5">
                 {result.xp.breakdown.map((b) => (
                   <span key={b.reason} className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-white/80">
@@ -145,8 +196,17 @@ export function CardReveal({ result, onDone, onViewCard }: Props) {
                 >
                   <div className="font-display text-lg font-bold text-accent-2">LEVEL UP! → {result.levelUp.to}</div>
                   <div className="text-sm text-white/80">You're now a {result.levelUp.title}</div>
+                  {result.levelUp.unlocks.length > 0 && (
+                    <ul className="mt-2 space-y-0.5 text-left text-xs text-white/85">
+                      {result.levelUp.unlocks.map((u) => (
+                        <li key={u}>🔓 {u}</li>
+                      ))}
+                    </ul>
+                  )}
                 </motion.div>
               )}
+
+              {result.progress && <ProgressList progress={result.progress} />}
 
               {result.isFirstOnCampus && (
                 <div className="text-sm font-semibold text-accent">🏆 First student on campus to discover this!</div>
@@ -162,10 +222,10 @@ export function CardReveal({ result, onDone, onViewCard }: Props) {
                 </div>
               )}
 
-              {result.lowConfidence && (
+              {result.lowConfidence != null && (
                 <div className="text-xs text-amber-300/90">
-                  We aren't very confident about this one ({Math.round(result.confidence * 100)}%). Try getting closer
-                  next time.
+                  We aren't very confident about this one ({Math.round(result.lowConfidence * 100)}%). Try getting
+                  closer next time.
                 </div>
               )}
 
@@ -195,10 +255,10 @@ export function CardReveal({ result, onDone, onViewCard }: Props) {
                   className="flex-1 rounded-2xl py-3.5 font-display font-bold text-ink active:scale-95"
                   style={{ background: d.color }}
                 >
-                  Keep exploring
+                  {result.doneLabel}
                 </button>
               </div>
-              {result.aiProvider === 'mock' && (
+              {result.mockAi && (
                 <p className="pb-4 text-[11px] text-white/40">Dev mode: mock AI (set AI_API_KEY for real identification)</p>
               )}
             </motion.div>
