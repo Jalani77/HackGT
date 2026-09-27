@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 import { env } from './env';
 
 let memoryServer: { stop: () => Promise<boolean> } | null = null;
+let transactionsSupported = false;
+
+export const supportsTransactions = () => transactionsSupported;
 
 /**
  * Connects to MONGODB_URI when set (Atlas / production). Otherwise starts a real
@@ -38,7 +41,12 @@ export async function connectDatabase(): Promise<void> {
     }
     throw err;
   }
-  console.log(`[db] connected to "${env.MONGODB_DB}" (${env.MONGODB_URI ? 'Atlas/remote' : 'local dev'})`);
+  // Multi-document transactions need a replica set (Atlas always is; the local dev mongod isn't).
+  const hello = await mongoose.connection.db!.admin().command({ hello: 1 });
+  transactionsSupported = !!hello.setName || hello.msg === 'isdbgrid';
+  console.log(
+    `[db] connected to "${env.MONGODB_DB}" (${env.MONGODB_URI ? 'MONGODB_URI' : 'built-in dev DB'}; transactions: ${transactionsSupported ? 'yes' : 'no'})`,
+  );
 
   mongoose.connection.on('disconnected', () => console.warn('[db] disconnected'));
   mongoose.connection.on('reconnected', () => console.log('[db] reconnected'));

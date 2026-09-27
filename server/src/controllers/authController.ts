@@ -23,6 +23,6 @@ export const authController = {
     res.json(await AuthService.login(credentials.pick({ username: true, password: true }).parse(req.body)));
   },
   async me(req: Request, res: Response) {
-    res.json(await UserService.toPublic(currentUser(req)));
+    res.json(await UserService.toPublic(currentUser(req), { isSelf: true }));
   },
 };

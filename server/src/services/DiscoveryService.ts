@@ -143,7 +143,7 @@ export const DiscoveryService = {
         confidence: analysis.confidence,
         xp,
         levelUp,
-        player: await UserService.toPublic(freshUser),
+        player: await UserService.toPublic(freshUser, { isSelf: true }),
         aiProvider: recognitionService.provider,
       };
     } catch (e) {
@@ -221,7 +221,7 @@ export const DiscoveryService = {
       confidence,
       xp: { awarded: d.xpAwarded, breakdown: [{ reason: 'Discovery', amount: d.xpAwarded }] },
       levelUp: null,
-      player: await UserService.toPublic(freshUser),
+      player: await UserService.toPublic(freshUser, { isSelf: true }),
       aiProvider: d.aiAnalysis?.provider ?? 'unknown',
     };
   },

@@ -6,6 +6,8 @@ import { CollectionScreen } from './screens/CollectionScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { SocialScreen } from './screens/SocialScreen';
+import { TradeComposerScreen } from './screens/TradeComposerScreen';
 
 function AppShell() {
   const { player, loading } = usePlayer();
@@ -30,6 +32,8 @@ export default function App() {
             <Route index element={<ExploreScreen />} />
             <Route path="collection" element={<CollectionScreen />} />
             <Route path="card/:id" element={<CardDetailScreen />} />
+            <Route path="social" element={<SocialScreen />} />
+            <Route path="trade/:userId" element={<TradeComposerScreen />} />
             <Route path="profile" element={<ProfileScreen />} />
             <Route path="profile/:id" element={<ProfileScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />

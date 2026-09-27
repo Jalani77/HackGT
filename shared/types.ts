@@ -37,6 +37,8 @@ export interface PublicUser {
   campusId: string;
   level: LevelInfo;
   stats: { discoveries: number; cardsOwned: number; uniqueCards: number; trades: number };
+  /** Pending trade offers waiting on this user (only populated for yourself). */
+  notifications: { incomingTrades: number };
   createdAt: string;
 }
 
@@ -49,6 +51,7 @@ export interface CardDTO {
   funFact: string;
   tags: string[];
   imageUrl: string;
+  imageCredit: { author: string; license: string; sourceUrl: string } | null;
   rarity: Rarity;
   rarityScore: number;
   tradeValue: number;
@@ -142,6 +145,84 @@ export type ApiErrorCode =
 
 export interface ApiError {
   error: { code: ApiErrorCode; message: string };
+}
+
+// ─── Social / trading ────────────────────────────────────────────
+
+export interface CardMini {
+  id: string;
+  name: string;
+  rarity: Rarity;
+  imageUrl: string;
+}
+
+export interface StudentSummary {
+  id: string;
+  username: string;
+  displayName: string;
+  level: number;
+  levelTitle: string;
+}
+
+/** A student in the directory, with trade matches relative to the viewer. */
+export interface StudentListItem extends StudentSummary {
+  wishlistCount: number;
+  tradableCount: number;
+  /** Cards on their wishlist that the viewer has tradable copies of. */
+  theyWantFromMe: CardMini[];
+  /** Cards on the viewer's wishlist that they have tradable copies of. */
+  iWantFromThem: CardMini[];
+}
+
+export interface WishlistEntry {
+  card: CardDTO;
+  /** Whether the wishlist owner already has a copy. */
+  ownedByUser: boolean;
+  /** How many tradable copies the *viewer* has (lets you spot "I can help!"). */
+  viewerTradableCopies: number;
+  /** How many other students have tradable copies (for your own wishlist). */
+  tradableElsewhere: number;
+}
+
+export interface CardSocial {
+  inMyWishlist: boolean;
+  wantedBy: StudentSummary[];
+  tradableBy: (StudentSummary & { copies: number })[];
+}
+
+export type TradeStatus = 'pending' | 'processing' | 'accepted' | 'declined' | 'cancelled' | 'expired';
+
+export interface TradeItemDTO {
+  copyId: string;
+  card: CardMini;
+}
+
+export interface TradeDTO {
+  id: string;
+  direction: 'incoming' | 'outgoing';
+  from: StudentSummary;
+  to: StudentSummary;
+  offered: TradeItemDTO[];
+  requested: TradeItemDTO[];
+  message: string;
+  status: TradeStatus;
+  statusReason: string;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface CreateTradeRequest {
+  toUserId: string;
+  offeredCopyIds: string[];
+  requestedCopyIds: string[];
+  message?: string;
+}
+
+export interface TradeAcceptResult {
+  trade: TradeDTO;
+  xpAwarded: number;
+  levelUp: { from: number; to: number; title: string } | null;
+  player: PublicUser;
 }
 
 export interface AuthResponse {

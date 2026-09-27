@@ -8,6 +8,9 @@
  * The discovery pipeline does not depend on any of this. Real cards are only created
  * by photographing things. The live-demo subject (Southern Live Oak) is intentionally NOT seeded.
  */
+import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import { Types } from 'mongoose';
 import sharp from 'sharp';
@@ -120,6 +123,87 @@ const CARDS: SeedCard[] = [
     tags: ['art', 'mural', 'painting'],
   },
 ];
+
+/** Freely licensed stock photos on Wikimedia Commons (credited on the card). */
+const COMMONS_FILES: Record<string, string> = {
+  'Tech Tower': 'TechTower.jpg',
+  'Kessler Campanile': 'Kessler_Campanile.jpg',
+  'Northern Cardinal': 'Male_northern_cardinal_in_Central_Park_(52612).jpg',
+  'Eastern Chipmunk': 'Chipmunk_with_stuffed_cheeks_in_Prospect_Park_(05980).jpg',
+  'Crape Myrtle': 'Extremosa_(Lagerstroemia_indica)_em_um_fim_de_tarde_em_Bagé-RS_-_55013179934.jpg',
+  'Southern Magnolia': 'Magnòlia_a_Verbania.JPG',
+  'Carpenter Bee': 'Carpenter_bee.jpg',
+  'Emergency Blue Light Phone': 'Emergecy_call_box_on_BYU_Campus,_Provo,_Utah,_Jun_16.jpg',
+  'Bike Rack': 'Ohio_State_University_bike_racks.jpg',
+  'Street Mural': 'Krog_Street_Tunnel_-_Atlanta,_GA_-_Flickr_-_hyku_(31).jpg',
+};
+
+const USER_AGENT = 'CampusQuest/0.1 (hackathon seed script)';
+type Credit = { author: string; license: string; sourceUrl: string };
+
+/** Download a Commons photo as square card art + its attribution. Returns null on any failure. */
+async function commonsArt(file: string): Promise<{ art: Buffer; credit: Credit } | null> {
+  try {
+    const api = new URL('https://commons.wikimedia.org/w/api.php');
+    api.search = new URLSearchParams({
+      action: 'query',
+      titles: `File:${file}`,
+      prop: 'imageinfo',
+      iiprop: 'url|extmetadata',
+      iiextmetadatafilter: 'Artist|LicenseShortName',
+      iiurlwidth: '960',
+      format: 'json',
+    }).toString();
+    const metaRes = await fetch(api, { headers: { 'User-Agent': USER_AGENT } });
+    if (!metaRes.ok) throw new Error(`Commons API returned HTTP ${metaRes.status}`);
+    const meta = (await metaRes.json()) as any;
+    const info = (Object.values(meta.query.pages)[0] as any).imageinfo?.[0];
+    if (!info?.thumburl) throw new Error('file not found on Commons');
+
+    const res = await fetch(info.thumburl, { headers: { 'User-Agent': USER_AGENT } });
+    if (!res.ok) throw new Error(`image download returned HTTP ${res.status}`);
+    const art = await sharp(Buffer.from(await res.arrayBuffer()))
+      .rotate()
+      .resize(640, 640, { fit: 'cover', position: sharp.strategy.attention })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    const stripHtml = (s = '') => s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    return {
+      art,
+      credit: {
+        author: stripHtml(info.extmetadata?.Artist?.value).slice(0, 80) || 'Unknown',
+        license: stripHtml(info.extmetadata?.LicenseShortName?.value) || 'See source',
+        sourceUrl: info.descriptionurl,
+      },
+    };
+  } catch (err) {
+    console.warn(`[seed] couldn't fetch stock photo "${file}": ${(err as Error).message}`);
+    return null;
+  }
+}
+
+/**
+ * Stock photo with a local cache (server/.data/seed-photos, gitignored). Once a photo has been
+ * downloaded, re-seeding never needs the network again, and a failed download can't replace it.
+ */
+async function stockArt(key: string, file: string): Promise<{ art: Buffer; credit: Credit } | null> {
+  const dir = path.join(env.serverRoot, '.data', 'seed-photos');
+  const imgPath = path.join(dir, `${key}.jpg`);
+  const creditPath = path.join(dir, `${key}.json`);
+  try {
+    return { art: await fs.readFile(imgPath), credit: JSON.parse(await fs.readFile(creditPath, 'utf8')) };
+  } catch {
+    /* not cached yet */
+  }
+  const fetched = await commonsArt(file);
+  if (fetched) {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(imgPath, fetched.art);
+    await fs.writeFile(creditPath, JSON.stringify(fetched.credit));
+  }
+  return fetched;
+}
 
 interface SeedStudent {
   username: string;
@@ -241,6 +325,7 @@ async function seed() {
   );
 
   const cards: (CardDoc | null)[] = [];
+  const placeholders: string[] = [];
   for (const [i, c] of CARDS.entries()) {
     const canonicalKey = toCanonicalKey(c.name);
     // Don't overwrite a card a real player already discovered with the same identity.
@@ -256,11 +341,16 @@ async function seed() {
       confidence: 0.95,
       isLandmark: !!c.isLandmark,
     });
-    const art = await storageService.put(
-      `seed/${canonicalKey}.jpg`,
-      await cardArt(c, RARITY_DISPLAY[rarity].color),
-      'image/jpeg',
-    );
+    // Real stock photo when available; generated art as an offline fallback.
+    const stock = COMMONS_FILES[c.name] ? await stockArt(canonicalKey, COMMONS_FILES[c.name]) : null;
+    if (!stock) placeholders.push(c.name);
+    const artBytes = stock?.art ?? (await cardArt(c, RARITY_DISPLAY[rarity].color));
+    // One fixed file per card (overwritten each run, so nothing accumulates). Browsers cache
+    // /uploads for days, so the URL carries a content version: new art → new URL → refetched.
+    const version = createHash('sha1').update(artBytes).digest('hex').slice(0, 10);
+    const stored = await storageService.put(`seed/${canonicalKey}.jpg`, artBytes, 'image/jpeg');
+    const art = { url: `${stored.url}?v=${version}` };
+    console.log(`[seed] ${c.name}: ${stock ? `photo by ${stock.credit.author} (${stock.credit.license})` : 'PLACEHOLDER art'}`);
     const owners = STUDENTS.map((s, si) => (s.owns.some((o) => o[0] === i) ? users[si] : null)).filter(Boolean);
     cards.push(
       await Card.create({
@@ -272,6 +362,7 @@ async function seed() {
         funFact: c.funFact,
         tags: c.tags,
         imageUrl: art.url,
+        imageCredit: stock?.credit ?? null,
         rarity,
         rarityScore,
         commonness: c.commonness,
@@ -332,6 +423,12 @@ async function seed() {
   }
 
   console.log(`[seed] created ${users.length} students, ${cards.filter(Boolean).length} cards, ${copies} copies`);
+  if (placeholders.length) {
+    console.warn(
+      `\n[seed] ⚠ WARNING: ${placeholders.length} card(s) used placeholder art because the stock photo couldn't be downloaded:\n` +
+        `        ${placeholders.join(', ')}\n        Check your internet connection and run \`npm run seed\` again.\n`,
+    );
+  }
   console.log(`[seed] log in as any of: ${STUDENTS.map((s) => s.username).join(', ')}  (password: ${SEED_PASSWORD})`);
 }
 

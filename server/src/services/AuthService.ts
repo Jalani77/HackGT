@@ -27,7 +27,7 @@ export const AuthService = {
       passwordHash: await bcrypt.hash(input.password, 10),
       campusId: env.DEFAULT_CAMPUS_ID,
     });
-    return { token: this.sign(String(user._id), user.campusId), user: await UserService.toPublic(user) };
+    return { token: this.sign(String(user._id), user.campusId), user: await UserService.toPublic(user, { isSelf: true }) };
   },
 
   async login(input: { username: string; password: string }): Promise<AuthResponse> {
@@ -35,7 +35,7 @@ export const AuthService = {
     if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
       throw new AppError('UNAUTHORIZED', 'Wrong username or password.');
     }
-    return { token: this.sign(String(user._id), user.campusId), user: await UserService.toPublic(user) };
+    return { token: this.sign(String(user._id), user.campusId), user: await UserService.toPublic(user, { isSelf: true }) };
   },
 
   sign(userId: string, campusId: string): string {

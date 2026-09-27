@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { authController } from '../controllers/authController';
 import { cardController } from '../controllers/cardController';
 import { discoveryController } from '../controllers/discoveryController';
+import { socialController } from '../controllers/socialController';
 import { userController } from '../controllers/userController';
 import { requireAuth } from '../middleware/auth';
 import { imageUpload } from '../middleware/upload';
@@ -47,3 +48,19 @@ api.get('/users/:id/profile', requireAuth, userController.profile);
 
 // Player-controlled flags on your own copies (favorite, tradable)
 api.patch('/collection/:copyId', requireAuth, userController.updateCopy);
+
+// Wishlist
+api.post('/wishlist', requireAuth, socialController.addToWishlist);
+api.delete('/wishlist/:cardId', requireAuth, socialController.removeFromWishlist);
+api.get('/users/:id/wishlist', requireAuth, socialController.wishlist);
+
+// Social discovery
+api.get('/students', requireAuth, socialController.students);
+api.get('/cards/:id/social', requireAuth, socialController.cardSocial);
+
+// Trading (all ownership checks are server-side in TradeService)
+api.get('/trades', requireAuth, socialController.listTrades);
+api.post('/trades', requireAuth, rateLimited(20, 'Too many trade offers. Take a breather!'), socialController.createTrade);
+api.post('/trades/:id/accept', requireAuth, socialController.acceptTrade);
+api.post('/trades/:id/reject', requireAuth, socialController.rejectTrade);
+api.post('/trades/:id/cancel', requireAuth, socialController.cancelTrade);

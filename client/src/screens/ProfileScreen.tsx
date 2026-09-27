@@ -2,10 +2,11 @@ import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { RARITY_DISPLAY } from '@shared/rarity';
-import type { ProfileResponse } from '@shared/types';
+import type { CollectionEntry, ProfileResponse, WishlistEntry } from '@shared/types';
 import { api } from '../api/client';
 import { CATEGORY_ICON } from '../components/cards/categoryIcons';
 import { CollectibleCard } from '../components/cards/CollectibleCard';
+import { MiniCard } from '../components/social/MiniCard';
 import { XPBar } from '../components/XPBar';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -14,18 +15,27 @@ export function ProfileScreen() {
   const navigate = useNavigate();
   const { logout, setPlayer } = usePlayer();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  const [wishlist, setWishlist] = useState<WishlistEntry[]>([]);
+  const [tradables, setTradables] = useState<CollectionEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setProfile(null);
-    api.profile(id).then(
-      (p) => {
+    Promise.all([api.profile(id), api.wishlist(id), api.collection(id)]).then(
+      ([p, w, col]) => {
         setProfile(p);
+        setWishlist(w);
+        setTradables(col.entries.filter((e) => e.copies.some((c) => c.tradable)));
         if (p.isMe) setPlayer(p.user); // keep HUD in sync with server state
       },
       (e) => setError(e.message),
     );
   }, [id, setPlayer]);
+
+  async function removeWish(cardId: string) {
+    setWishlist((w) => w.filter((e) => e.card.id !== cardId));
+    await api.removeFromWishlist(cardId).catch((e) => setError(e.message));
+  }
 
   if (error) return <p className="p-10 text-center text-red-300">{error}</p>;
   if (!profile) return <p className="p-10 text-center text-white/50">Loading profile…</p>;
@@ -55,10 +65,24 @@ export function ProfileScreen() {
             <p className="text-sm text-white/60">
               @{user.username} · Level {user.level.level} {user.level.title}
             </p>
+            {user.stats.trades > 0 && (
+              <p className="text-xs text-accent">
+                🤝 {user.stats.trades} trade{user.stats.trades > 1 ? 's' : ''} completed
+              </p>
+            )}
           </div>
         </section>
 
         <XPBar level={user.level} />
+
+        {!isMe && (
+          <Link
+            to={`/trade/${user.id}`}
+            className="rounded-2xl bg-accent py-3.5 text-center font-display text-lg font-bold text-ink active:scale-95"
+          >
+            🤝 Propose a trade
+          </Link>
+        )}
 
         <section className="grid grid-cols-4 gap-2 text-center">
           <Stat value={user.stats.cardsOwned} label="Cards" />
@@ -87,6 +111,78 @@ export function ProfileScreen() {
                 <div className="mt-1 text-xs text-white/60">Found {rarestCard.card.stats.discoveryCount}× on campus</div>
               </div>
             </Link>
+          </section>
+        )}
+
+        <section>
+          <SectionTitle>{isMe ? 'My wishlist' : `${user.displayName} is looking for`}</SectionTitle>
+          {wishlist.length === 0 ? (
+            <p className="mt-2 text-sm text-white/50">
+              {isMe
+                ? 'Nothing yet. Tap “Add to wishlist” on any card you’re hunting for, and other students will see it.'
+                : 'Their wishlist is empty.'}
+            </p>
+          ) : (
+            <ul className="mt-2 flex flex-col gap-2">
+              {wishlist.map((w) => {
+                const canHelp = !isMe && w.viewerTradableCopies > 0;
+                const d = RARITY_DISPLAY[w.card.rarity];
+                return (
+                  <li
+                    key={w.card.id}
+                    className={`flex items-center gap-3 rounded-xl p-2 ring-1 ${canHelp ? 'bg-accent-2/10 ring-accent-2/60' : 'bg-white/5 ring-white/10'}`}
+                  >
+                    <Link to={`/card/${w.card.id}`}>
+                      <MiniCard card={w.card} size={48} highlight={canHelp} />
+                    </Link>
+                    <Link to={`/card/${w.card.id}`} className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold">🔍 {w.card.name}</div>
+                      <div className="text-xs" style={{ color: d.color }}>
+                        {'★'.repeat(d.stars)} {d.label}
+                      </div>
+                      {canHelp && <div className="text-xs font-bold text-accent-2">You have this! You could trade it.</div>}
+                      {isMe && (
+                        <div className="text-xs text-white/50">
+                          {w.ownedByUser
+                            ? 'You own one, but want more'
+                            : w.tradableElsewhere > 0
+                              ? `${w.tradableElsewhere} student${w.tradableElsewhere > 1 ? 's' : ''} can trade you this`
+                              : 'Nobody is trading this yet. Go find one!'}
+                        </div>
+                      )}
+                    </Link>
+                    {isMe && (
+                      <button
+                        onClick={() => removeWish(w.card.id)}
+                        className="px-2 text-lg text-white/40"
+                        aria-label={`Remove ${w.card.name} from wishlist`}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {!isMe && tradables.length > 0 && (
+          <section>
+            <SectionTitle>Open to trade</SectionTitle>
+            <div className="-mx-5 mt-2 flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
+              {tradables.map((e) => (
+                <Link key={e.card.id} to={`/card/${e.card.id}`} className="w-28 shrink-0 active:scale-95">
+                  <CollectibleCard
+                    card={e.card}
+                    imageUrl={e.copies.find((c) => c.tradable)?.imageUrl}
+                    copies={e.copies.filter((c) => c.tradable).length}
+                    tradable
+                    compact
+                  />
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 

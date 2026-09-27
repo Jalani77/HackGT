@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import type { CardDTO, CollectionEntry, CopyPatch } from '@shared/types';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import type { CardDTO, CardSocial, CollectionEntry, CopyPatch } from '@shared/types';
 import { api } from '../api/client';
 import { CollectibleCard } from '../components/cards/CollectibleCard';
+import { StudentChip } from '../components/social/StudentChip';
 
 export function CardDetailScreen() {
   const { id = '' } = useParams();
@@ -29,14 +30,29 @@ export function CardDetailScreen() {
     }
   }
 
+  const [social, setSocial] = useState<CardSocial | null>(null);
+
   useEffect(() => {
-    Promise.all([api.card(id), api.collection()])
-      .then(([c, col]) => {
+    Promise.all([api.card(id), api.collection(), api.cardSocial(id)])
+      .then(([c, col, s]) => {
         setCard(c);
         setMine(col.entries.find((e) => e.card.id === id) ?? null);
+        setSocial(s);
       })
       .catch((e) => setError(e.message));
   }, [id]);
+
+  async function toggleWishlist() {
+    if (!social) return;
+    const next = !social.inMyWishlist;
+    setSocial({ ...social, inMyWishlist: next });
+    try {
+      await (next ? api.addToWishlist(id) : api.removeFromWishlist(id));
+    } catch (e) {
+      setSocial({ ...social, inMyWishlist: !next });
+      setToggleError((e as Error).message);
+    }
+  }
 
   return (
     <div className="h-full overflow-y-auto">
@@ -51,6 +67,69 @@ export function CardDetailScreen() {
           <div className="mx-auto w-[82%] max-w-[300px]">
             <CollectibleCard card={card} imageUrl={mine?.copies[0]?.imageUrl} />
           </div>
+
+          {card.imageCredit && (
+            <p className="-mt-3 text-center text-[11px] text-white/40">
+              Photo: {card.imageCredit.author} ·{' '}
+              <a href={card.imageCredit.sourceUrl} target="_blank" rel="noreferrer" className="underline">
+                {card.imageCredit.license}
+              </a>
+            </p>
+          )}
+
+          {!mine && (
+            <p className="-mt-2 rounded-xl bg-white/5 p-3 text-center text-sm text-white/60 ring-1 ring-white/10">
+              🔒 You haven't collected this yet. Find one on campus or trade for it!
+            </p>
+          )}
+
+          {social && (
+            <button
+              onClick={toggleWishlist}
+              className={`rounded-2xl py-3.5 font-display font-bold ring-1 transition active:scale-95 ${
+                social.inMyWishlist ? 'bg-accent-2/15 text-accent-2 ring-accent-2/60' : 'bg-white/8 ring-white/15'
+              }`}
+            >
+              {social.inMyWishlist ? '★ On your wishlist' : '☆ Add to wishlist'}
+            </button>
+          )}
+
+          {social && social.tradableBy.length > 0 && (
+            <section>
+              <h2 className="font-display text-xs font-bold tracking-widest text-accent">CAN TRADE IT TO YOU</h2>
+              <div className="mt-2 flex flex-col gap-2">
+                {social.tradableBy.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-2">
+                    <StudentChip student={s} extra={`${s.copies} tradable`} />
+                    <Link
+                      to={`/trade/${s.id}`}
+                      className="rounded-xl bg-accent px-3.5 py-2 font-display text-sm font-bold text-ink active:scale-95"
+                    >
+                      Trade
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {social && social.wantedBy.length > 0 && (
+            <section>
+              <h2 className="font-display text-xs font-bold tracking-widest text-accent-2">
+                ❤️ WANTED BY {social.wantedBy.length} STUDENT{social.wantedBy.length > 1 ? 'S' : ''}
+              </h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {social.wantedBy.map((s) => (
+                  <StudentChip key={s.id} student={s} />
+                ))}
+              </div>
+              {mine && (
+                <p className="mt-2 text-xs text-white/50">
+                  You own this. Mark a copy 🔄 tradable below and they'll see it's available.
+                </p>
+              )}
+            </section>
+          )}
 
           <section>
             <h2 className="font-display text-xs font-bold tracking-widest text-white/50">ABOUT</h2>

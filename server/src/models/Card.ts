@@ -16,6 +16,11 @@ const cardSchema = new Schema(
     funFact: { type: String, required: true },
     tags: { type: [String], default: [] },
     imageUrl: { type: String, required: true }, // card art from the first discoverer
+    // Attribution for licensed stock art (seed/partner cards). Null for player photos.
+    imageCredit: {
+      type: { author: String, license: String, sourceUrl: String },
+      default: null,
+    },
     rarity: { type: String, enum: RARITY_TIERS, required: true, index: true },
     rarityScore: { type: Number, required: true, min: 0, max: 100 },
     commonness: { type: Number, min: 1, max: 5, default: 3 }, // AI estimate, kept for re-scoring

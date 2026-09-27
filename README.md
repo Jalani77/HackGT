@@ -34,6 +34,7 @@ npm run dev                   # API on :4000, app on http://localhost:5173
 | `npm run typecheck` | TypeScript checks for both packages |
 | `npm run seed` | **test data**: 5 students (`jordan`, `maya`, `alex`, `priya`, `sam`, password `password123`) with cards, duplicates, and wishlists. Everything is flagged `isSeed`. `npm run seed -- --reset` removes it. |
 | `npm run test:api -w server` | auth, profile, and collection-permission checks (needs seed data; works with any AI provider) |
+| `npm run test:trades -w server` | wishlist + trading checks: ownership, stale offers, concurrent accepts, XP (**run `npm run seed` first**; it changes seed data) |
 | `npm run smoke` | discovery pipeline test (register → analyze → duplicate → idempotent retry → invalid images). Uses synthetic images, so run it with the **mock** AI (empty `AI_API_KEY`) |
 | `npm run cleanup:test-users -w server` | delete accounts created by the test scripts (`smoke_*`, `ui_*`, `real_*`, `api_*`) |
 | `npm run build` | production client build |
@@ -48,7 +49,15 @@ practical choice for a hackathon (use a strong DB password). A TLS "alert number
 ## Status
 
 - ✅ **Phase 1: Core discovery.** Camera → upload → AI → card → rarity → XP → MongoDB → reveal → collection
-- ✅ **Phase 2: Collection.** Profiles (rarest card, favorites, explorer style, recent finds), favorite and tradable flags per copy, collection filters, 15 levels, seed data
+- ✅ **Phase 2: Collection.** Profiles (rarest card, favorites, explorer style, recent finds), favorite and tradable flags per copy, collection filters, 15 levels, seed data with credited Wikimedia Commons stock photos
+- ✅ **Phase 3: Social.**
+  - Wishlists that other students can see.
+  - A student directory ranked by trade matches ("Has 2 you want" / "Wants 1 of yours").
+  - "Wanted by" and "can trade it to you" lists on every card.
+  - A "Missing" filter for campus cards you haven't found.
+  - Trade proposals (gifts allowed), with accept, decline, and cancel.
+  - Incoming-offer badges.
+  - Ownership is re-checked on accept, and copies move all-or-nothing (a transaction on Atlas, rollback locally).
 - ⏳ Phase 3: Wishlist and trading
 - ⏳ Phase 4: Missions, group events, rewards, achievements
 - ⏳ Phase 5: Routes

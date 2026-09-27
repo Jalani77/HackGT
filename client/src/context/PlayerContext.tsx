@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { PublicUser } from '@shared/types';
-import { api, tokenStore } from '../api/client';
+import { api, ApiRequestError, tokenStore } from '../api/client';
 
 interface PlayerContextValue {
   player: PublicUser | null;
@@ -22,8 +22,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!tokenStore.get()) return setPlayer(null);
     try {
       setPlayer(await api.me());
-    } catch {
-      setPlayer(null);
+    } catch (e) {
+      // Only an invalid session logs you out; a flaky connection keeps you signed in.
+      if (e instanceof ApiRequestError && e.code === 'UNAUTHORIZED') setPlayer(null);
     }
   }, []);
 

@@ -3,12 +3,18 @@ import type {
   ApiErrorCode,
   AuthResponse,
   CardDTO,
+  CardSocial,
   CollectionResponse,
   CopyPatch,
+  CreateTradeRequest,
   DiscoveryResult,
   OwnedCardDTO,
   ProfileResponse,
   PublicUser,
+  StudentListItem,
+  TradeAcceptResult,
+  TradeDTO,
+  WishlistEntry,
 } from '@shared/types';
 
 const TOKEN_KEY = 'cq.token';
@@ -87,4 +93,19 @@ export const api = {
   profile: (userId = 'me') => request<ProfileResponse>(`/users/${userId}/profile`),
   updateCopy: (copyId: string, patch: CopyPatch) =>
     request<OwnedCardDTO>(`/collection/${copyId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  catalog: () => request<CardDTO[]>('/cards?limit=200'),
+
+  // Wishlist & social
+  wishlist: (userId = 'me') => request<WishlistEntry[]>(`/users/${userId}/wishlist`),
+  addToWishlist: (cardId: string) => request<{ ok: true }>('/wishlist', { method: 'POST', body: JSON.stringify({ cardId }) }),
+  removeFromWishlist: (cardId: string) => request<{ ok: true }>(`/wishlist/${cardId}`, { method: 'DELETE' }),
+  students: (q?: string) => request<StudentListItem[]>(`/students${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  cardSocial: (cardId: string) => request<CardSocial>(`/cards/${cardId}/social`),
+
+  // Trades
+  trades: () => request<TradeDTO[]>('/trades'),
+  createTrade: (body: CreateTradeRequest) => request<TradeDTO>('/trades', { method: 'POST', body: JSON.stringify(body) }),
+  acceptTrade: (id: string) => request<TradeAcceptResult>(`/trades/${id}/accept`, { method: 'POST' }),
+  rejectTrade: (id: string) => request<TradeDTO>(`/trades/${id}/reject`, { method: 'POST' }),
+  cancelTrade: (id: string) => request<TradeDTO>(`/trades/${id}/cancel`, { method: 'POST' }),
 };

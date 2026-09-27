@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RARITY_DISPLAY, RARITY_TIERS, rarityRank, type Rarity } from '@shared/rarity';
-import type { CollectionResponse } from '@shared/types';
+import type { CardDTO, CollectionResponse } from '@shared/types';
 import { api } from '../api/client';
 import { CollectibleCard } from '../components/cards/CollectibleCard';
 
@@ -14,15 +14,33 @@ export function CollectionScreen() {
   const [rarity, setRarity] = useState<Rarity | 'ALL'>('ALL');
   const [sort, setSort] = useState<Sort>('recent');
   const [q, setQ] = useState('');
-  const [flag, setFlag] = useState<'duplicates' | 'favorites' | 'tradable' | null>(null);
+  const [flag, setFlag] = useState<'duplicates' | 'favorites' | 'tradable' | 'missing' | null>(null);
+  const [catalog, setCatalog] = useState<CardDTO[] | null>(null);
   const toggleFlag = (f: NonNullable<typeof flag>) => setFlag((cur) => (cur === f ? null : f));
 
   useEffect(() => {
     api.collection().then(setData, (e) => setError(e.message));
   }, []);
 
+  useEffect(() => {
+    if (flag === 'missing' && !catalog) api.catalog().then(setCatalog, (e) => setError(e.message));
+  }, [flag, catalog]);
+
+  // Campus cards you don't own yet, the ones to hunt for or wishlist.
+  const missing = useMemo(() => {
+    if (!catalog || !data) return [];
+    const owned = new Set(data.entries.map((e) => e.card.id));
+    const needle = q.trim().toLowerCase();
+    return catalog.filter(
+      (c) =>
+        !owned.has(c.id) &&
+        (rarity === 'ALL' || c.rarity === rarity) &&
+        (!needle || c.name.toLowerCase().includes(needle) || c.category.toLowerCase().includes(needle)),
+    );
+  }, [catalog, data, rarity, q]);
+
   const entries = useMemo(() => {
-    if (!data) return [];
+    if (!data || flag === 'missing') return [];
     const needle = q.trim().toLowerCase();
     const list = data.entries.filter(
       (e) =>
@@ -97,6 +115,9 @@ export function CollectionScreen() {
           <Chip active={flag === 'duplicates'} onClick={() => toggleFlag('duplicates')}>
             Duplicates
           </Chip>
+          <Chip active={flag === 'missing'} onClick={() => toggleFlag('missing')}>
+            🔒 Missing
+          </Chip>
         </div>
       </header>
 
@@ -114,8 +135,28 @@ export function CollectionScreen() {
         </div>
       )}
 
-      {data && data.entries.length > 0 && entries.length === 0 && (
+      {data && data.entries.length > 0 && flag !== 'missing' && entries.length === 0 && (
         <p className="p-10 text-center text-white/50">No cards match these filters.</p>
+      )}
+
+      {flag === 'missing' && (
+        <>
+          <p className="px-4 pt-1 text-sm text-white/55">
+            {!catalog
+              ? 'Loading campus cards…'
+              : missing.length === 0
+                ? 'You’ve collected every card discovered on campus so far! 🎉'
+                : `${missing.length} campus card${missing.length > 1 ? 's' : ''} you haven't found. Tap one to wishlist it or find who can trade it.`}
+          </p>
+          <div className="grid grid-cols-2 gap-3 px-4 pb-8 pt-3 sm:grid-cols-3 md:grid-cols-4">
+            {missing.map((c) => (
+              <Link key={c.id} to={`/card/${c.id}`} className="relative block opacity-60 grayscale-[70%] active:scale-95">
+                <CollectibleCard card={c} compact />
+                <span className="absolute inset-0 flex items-center justify-center text-4xl drop-shadow-lg">🔒</span>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="grid grid-cols-2 gap-3 px-4 pb-8 pt-2 sm:grid-cols-3 md:grid-cols-4">

@@ -9,7 +9,7 @@ export const ProfileService = {
   /** Profile built from the player's real collection. Contains no location data. */
   async build(user: UserDoc, viewerId: string): Promise<ProfileResponse> {
     const [publicUser, collection, recentDiscoveries] = await Promise.all([
-      UserService.toPublic(user),
+      UserService.toPublic(user, { isSelf: String(user._id) === viewerId }),
       CollectionService.getCollection(String(user._id), user.campusId),
       DiscoveryService.listMine(user._id, 6),
     ]);

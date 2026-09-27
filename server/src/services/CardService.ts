@@ -136,6 +136,9 @@ export const CardService = {
         funFact: c.funFact,
         tags: c.tags,
         imageUrl: c.imageUrl,
+        imageCredit: c.imageCredit?.sourceUrl
+          ? { author: c.imageCredit.author ?? '', license: c.imageCredit.license ?? '', sourceUrl: c.imageCredit.sourceUrl }
+          : null,
         rarity: c.rarity as Rarity,
         rarityScore: c.rarityScore,
         tradeValue: RarityService.tradeValue(c.rarityScore, wantedBy),
